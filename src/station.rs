@@ -1,12 +1,7 @@
-//use self::platform
-
 mod platform; 
 
 
-use std::collections::HashMap;
 use crate::train::TrainType;
-
-pub let mut station_identification = HashMap::new();
 
 pub struct Station {
     platforms: Vec<platform::Platform>,
@@ -14,31 +9,34 @@ pub struct Station {
     name: String,
 }
 
+pub enum PlatformError {
+        Booking,
+}
+
 
 impl Station {
-    fn new(id: &mut u32, name: String, platforms: Vec<platform::Platform> ) -> u32 {
+    pub fn new(id: &mut u32, name: String, platforms: Vec<platform::Platform> /*, station_map: &mut HashMap*/) -> Station{
 
         *id += 1;
 
 
-        Station {
+        /*station_map.insert(id.clone(),*/ Station {
             platforms: platforms,
             id: id.clone(),
             name: name,
-        };
-        // adding the newly created station and it's respective ID to 
-        // the HashMap for identification.
-        station_identification.insert(id.clone(), Station);
-        id.clone()
+        }
+        //);
+        //id.clone()
     }
-    fn platform_gen(number: u8,station_id: u32 ,platform_type: TrainType) -> Vec<platform::Platform> {
+
+    pub fn platform_gen(number: u8,platform_type: TrainType) -> Vec<platform::Platform> {
         
 
         let mut plat_vec = Vec::new();
 
         for i in 0..number {
             
-            let a_plat = platform::Platform::new(i, station_id, platform_type);
+            let a_plat = platform::Platform::new(i, platform_type);
             plat_vec.push(a_plat);
         } 
         plat_vec
@@ -46,29 +44,24 @@ impl Station {
 
     // method to get an empty/available platform. This is useful to 
     // allocate a spot for a new train to be spawned in.
-    fn available_platform(self, plat_type: TrainType) -> Option<u8> {
+    pub fn available_platform(&self, plat_type: TrainType) -> Option<u8> {
         
-        for plat in self.platforms {
+        for plat in &self.platforms {
             match plat.occupied {
                 false => match plat.platform_type {
-                    plat_type => Some(plat.id),
+                    plat_type => Some(plat.id.clone()),
                     _ => continue,
                 },
                 _ => continue,
-            }
+            };
         }
         None
     }
 
-    enum PlatformError {
-        Booking,
-    }
-
-
-    fn enter_station(self, booking_id: u8) -> Result<(), PlatformError> {
-        for plat in self.platform {
+    pub fn enter_station( &mut self, booking_id: u8) -> Result<(), PlatformError> {
+        for mut plat in &mut self.platforms {
             match plat.id {
-                booking_id => {plat.occupation = true; Ok()}
+                booking_id => {plat.occupied = true; ()}
                 _ => continue
             }
         }

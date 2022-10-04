@@ -1,6 +1,5 @@
-use crate::station::Station;
 
-struct Route {
+pub struct Route {
     id: u32,
     name: String,
     start_station: u16,
