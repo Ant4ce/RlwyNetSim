@@ -1,6 +1,6 @@
 pub mod station;
 pub mod train;
-pub mod route;
+pub mod line;
 
 use std::collections::HashMap;
 use crate::train::TrainType;
