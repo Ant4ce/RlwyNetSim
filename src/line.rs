@@ -36,6 +36,7 @@ impl Line {
     //returns next segment to go on for the train and if to switch direction
     fn get_next_segment(&self, segment_id: &u32, forward: &bool) -> (&u32, bool) {
         //self.segments.iter().filter(|segment| segment.id.eq(segment_id)).next().id
+        //.find instead of .filter will be faster
         let counter = 0;
         for segment in self.segments {
             if segment_id == segment.id && forward {
