@@ -2,13 +2,13 @@ use crate::station::Station;
 
 struct Route<'a> {
     id: u32,
-    name: String,
+    name: &'a String,
     start_station: u32,
     end_station: u32,
 }
 
-impl Route {
-    fn new<&'a>(id: &mut u32, &'a name: String, start_station: u32, end_station: u32) -> &'a Route {
+impl<'a> Route<'a> {
+    fn new(id: &'a mut u32, name: &'a String, start_station: u32, end_station: u32) -> Route<'a> {
 
         *id += 1;
         
