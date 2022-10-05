@@ -107,37 +107,40 @@ impl<'a> Line<'a> {
         None
     }
     fn merge_segments<'b: 'a>(&'b mut self, common_station: &u32) -> Result<&route::Route, LineError> {
-        let counter: usize = 0;
-        for segment in &mut self.segments {
+        let mut counter: usize = 0;
+        for segment in self.segments.clone() {
             if segment.end_station == *common_station {
-                segment.end_station = self.segments.get(counter + 1).unwrap().end_station;
+                //segment.end_station = self.segments.get(counter + 1).unwrap().end_station;
+                self.segments.get_mut(counter).unwrap().end_station = self.segments.get(counter + 1).unwrap().end_station;
                 self.segments.remove(counter + 1);
-                if segment == self.segments.last().unwrap() && self.looping == false {
+                if segment == *self.segments.last().unwrap() && self.looping == false {
                     self.end_segment = Some(segment.id);
                 }
                 return Ok(self.segments.get(counter).unwrap());
             }
+            else {counter += 1;}
         }
         return Err(LineError::NoCommonStationError);
     }
     fn remove_segment(&mut self, segment_id: &u32) -> Result<route::Route, LineError> {
         let mut counter: usize = 0;
-        for segment in &mut self.segments {
+        for segment in self.segments.clone() {
             if segment_id == &segment.id {
-                if segment == self.segments.first().unwrap() && self.looping == true {
-                    self.segments.last_mut().unwrap().end_station = self.segments.get(1).unwrap().start_station;
+                if segment == *self.segments.first().unwrap() && self.looping == true {
+                    let start_station = self.segments.get(1).unwrap().start_station.clone();
+                    self.segments.last_mut().unwrap().end_station = start_station;
                     self.segments.get_mut(1).unwrap().start_station = self.segments.last().unwrap().end_station;
                     return Ok(self.segments.remove(0));
-                } else if segment == self.segments.first().unwrap() {
+                } else if segment == *self.segments.first().unwrap() {
                     self.start_segment = Some(self.segments[1].id);
                     let removed_segment = self.segments.remove(0);
                     return Ok(removed_segment);
-                } else if segment == self.segments.last().unwrap() && self.looping == true {
+                } else if segment == *self.segments.last().unwrap() && self.looping == true {
                     let removed_segment = self.segments.pop();
                     self.segments.first_mut().unwrap().start_station = self.segments.last().unwrap().end_station;
                     self.segments.last_mut().unwrap().end_station = self.segments.first().unwrap().start_station;
                     return Ok(removed_segment.unwrap());
-                } else if *segment == *self.segments.last().unwrap() {
+                } else if segment == *self.segments.last().unwrap() {
                     let removed_segment = self.segments.pop();
                     self.end_segment == Some(self.segments.last().unwrap().id);
                     return Ok(removed_segment.unwrap());

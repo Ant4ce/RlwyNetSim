@@ -1,4 +1,4 @@
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Route<'a> {
     pub id: u32,
     pub name: &'a String,
