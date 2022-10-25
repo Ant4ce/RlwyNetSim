@@ -17,6 +17,8 @@ fn main() {
     // insert the returned station Object into the HashMap.
 
     let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
+
+    println!("{:?}", test_station);
 }
 
 

@@ -1,5 +1,6 @@
 use crate::train::TrainType;
 
+#[derive(Debug)]
 pub struct Platform {
     pub id: u8,
     pub occupied: bool,

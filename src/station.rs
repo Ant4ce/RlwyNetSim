@@ -3,6 +3,7 @@ mod platform;
 
 use crate::train::TrainType;
 
+#[derive(Debug)]
 pub struct Station {
     platforms: Vec<platform::Platform>,
     id: u32,
@@ -15,27 +16,22 @@ pub enum PlatformError {
 
 
 impl Station {
-    pub fn new(id: &mut u32, name: String, platforms: Vec<platform::Platform> /*, station_map: &mut HashMap*/) -> Station{
+    pub fn new(id: &mut u32, name: String, platforms: Vec<platform::Platform> ) -> Station{
 
         *id += 1;
 
 
-        /*station_map.insert(id.clone(),*/ Station {
+        Station {
             platforms: platforms,
             id: id.clone(),
             name: name,
         }
-        //);
-        //id.clone()
     }
 
-    pub fn platform_gen(number: u8,platform_type: TrainType) -> Vec<platform::Platform> {
-        
-
+    pub fn platform_gen(number: u8, platform_type: TrainType) -> Vec<platform::Platform> {
         let mut plat_vec = Vec::new();
 
         for i in 0..number {
-            
             let a_plat = platform::Platform::new(i, platform_type);
             plat_vec.push(a_plat);
         } 

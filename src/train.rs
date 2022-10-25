@@ -10,7 +10,7 @@ struct Train {
     route: String,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum TrainType {
     LowSpeed,
     Freight,
