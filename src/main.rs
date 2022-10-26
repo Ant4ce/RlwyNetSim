@@ -16,9 +16,13 @@ fn main() {
     // when calling the constructor of station be sure to 
     // insert the returned station Object into the HashMap.
 
-    let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
+    //let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
 
-    println!("{:?}", test_station);
+    //let test_dos = station::Station::new(&mut station_id_counter, "dos".to_string(), station::Station::platform_gen(4, TrainType::LowSpeed));
+
+    //println!("{:?}", test_station);
+    //println!("{:?}", test_dos);
+    let test_station = station::Station::new(&mut station_id_counter, "AStat".to_string(), vec![(TrainType::LowSpeed, 3), (TrainType::Freight, 5)]);
 }
 
 

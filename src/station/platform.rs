@@ -1,6 +1,6 @@
 use crate::train::TrainType;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Platform {
     pub id: u8,
     pub occupied: bool,
@@ -14,7 +14,7 @@ impl Platform {
         Platform {
             id,
             occupied: false,
-            platform_type: TrainType::LowSpeed,
+            platform_type: platform_type,
         }
     }
 }
