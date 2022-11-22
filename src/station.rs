@@ -25,9 +25,9 @@ impl Station {
         let mut all_platforms : Vec<platform::Platform> = Vec::new();
         for (pf_type, pf_num) in platform_nums {
             for plat in Self::platform_gen(pf_num, pf_type, &mut platform_id) {
-                let copy = plat.clone();
+                //let copy = plat.clone();
                 all_platforms.push(plat);
-                println!("pushed a platform: {:?}", copy );
+                //println!("pushed a platform: {:?}", copy );
             }
         }
 
@@ -62,10 +62,15 @@ impl Station {
     }
 
     pub fn enter_station( &mut self, booking_id: u8) -> Result<(), PlatformError> {
+        // there is no need to loop over this, why have linear runtime ?? When we have the id to
+        // access it straight away. UPDATE THIS. 
         for mut plat in &mut self.platforms {
+           // REMEMBER: match is PATTERN MATCHING, so it matches on patterns not specific values.
+           // Here i use match guard, which is the "num if num == booking_id". This allows me to
+           // match on a specific value. Just matching on booking ID doesn't work.    
             match plat.id {
-                booking_id => {plat.occupied = true; ()}
-                _ => continue
+                num if num == booking_id  => {plat.occupied = true;  return Ok(())},
+                _ => continue,
             }
         }
         Err(PlatformError::Booking)

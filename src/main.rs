@@ -22,7 +22,13 @@ fn main() {
 
     //println!("{:?}", test_station);
     //println!("{:?}", test_dos);
-    let test_station = station::Station::new(&mut station_id_counter, "AStat".to_string(), vec![(TrainType::LowSpeed, 3), (TrainType::Freight, 5)]);
+    let mut test_station = station::Station::new(&mut station_id_counter, "AStat".to_string(), vec![(TrainType::LowSpeed, 3), (TrainType::Freight, 5)]);
+    //println!("{:?}", test_station);
+
+    //println!("{}", test_station.available_platform(TrainType::Freight).unwrap());
+
+    test_station.enter_station(test_station.available_platform(TrainType::Freight).unwrap());
+    println!("{:?}", test_station);
 }
 
 
