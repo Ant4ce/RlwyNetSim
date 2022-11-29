@@ -62,7 +62,7 @@ impl Station {
         None
     }
 
-    pub fn enter_station( &mut self, booking_id: u8) -> Result<(), PlatformError> {
+    pub fn enter_station( &mut self, booking_id: u8) /*-> Result<(), PlatformError>*/ {
         // there is no need to loop over this, why have linear runtime ?? When we have the id to
         // access it straight away. UPDATE THIS. 
         //for mut plat in &mut self.platforms {
@@ -78,8 +78,15 @@ impl Station {
         
         //*Improved version*
         // Indexing into array requires usize so converted the u8 from booking_id to usize. 
-        {self.platforms[usize::from(booking_id)].occupied = true; return Ok(())}
-        Err(PlatformError::Booking)
+        self.platforms[usize::from(booking_id)].occupied = true; 
+        //Ok(())
+        //Err(PlatformError::Booking)
+    }
+
+    pub fn leave_station( &mut self, plat_id: u8) {
+
+        self.platforms[usize::from(plat_id)].occupied = false;
+        
     }
 }
 
@@ -128,6 +135,11 @@ mod tests {
 
         assert_eq!(unit_station.platforms[6].occupied, true);
         assert_eq!(unit_station.platforms[5].occupied, true);
+        assert_eq!(unit_station.platforms[4].occupied, false);
+
+        unit_station.leave_station(5);
+        assert_eq!(unit_station.platforms[5].occupied, false);
+        assert_eq!(unit_station.platforms[6].occupied, true);
         assert_eq!(unit_station.platforms[4].occupied, false);
     }
 }
