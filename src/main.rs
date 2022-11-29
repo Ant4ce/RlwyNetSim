@@ -12,7 +12,8 @@ fn main() {
     let mut route_id_counter: u32 = 0; 
 
 
-    let mut station_identification: HashMap<u32, station::Station> = HashMap::new();
+    //let mut station_identification: HashMap<u32, station::Station> = HashMap::new();
+
     // when calling the constructor of station be sure to 
     // insert the returned station Object into the HashMap.
 
@@ -28,6 +29,7 @@ fn main() {
     //println!("{}", test_station.available_platform(TrainType::Freight).unwrap());
 
     test_station.enter_station(test_station.available_platform(TrainType::Freight).unwrap());
+    println!("{:?}", test_station.enter_station(5));
     println!("{:?}", test_station);
 }
 

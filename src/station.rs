@@ -10,6 +10,7 @@ pub struct Station {
     name: String,
 }
 
+#[derive(Debug)]
 pub enum PlatformError {
         Booking,
 }
@@ -64,15 +65,20 @@ impl Station {
     pub fn enter_station( &mut self, booking_id: u8) -> Result<(), PlatformError> {
         // there is no need to loop over this, why have linear runtime ?? When we have the id to
         // access it straight away. UPDATE THIS. 
-        for mut plat in &mut self.platforms {
-           // REMEMBER: match is PATTERN MATCHING, so it matches on patterns not specific values.
-           // Here i use match guard, which is the "num if num == booking_id". This allows me to
-           // match on a specific value. Just matching on booking ID doesn't work.    
-            match plat.id {
-                num if num == booking_id  => {plat.occupied = true;  return Ok(())},
-                _ => continue,
-            }
-        }
+        //for mut plat in &mut self.platforms {
+        //   // REMEMBER: match is PATTERN MATCHING, so it matches on patterns not specific values.
+        //   // Here i use match guard, which is the "num if num == booking_id". This allows me to
+        //   // match on a specific value. Just matching on booking ID doesn't work.    
+        //    match plat.id {
+        //        num if num == booking_id  => {plat.occupied = true;  return Ok(())},
+        //        _ => continue,
+        //    }
+        //}
+        //Err(PlatformError::Booking)
+        
+        //*Improved version*
+        // Indexing into array requires usize so converted the u8 from booking_id to usize. 
+        {self.platforms[usize::from(booking_id)].occupied = true; return Ok(())}
         Err(PlatformError::Booking)
     }
 }
@@ -108,6 +114,21 @@ mod tests {
         
         assert_eq!(unit_station.available_platform(TrainType::LowSpeed).unwrap(), 3);
 
+    }
+    #[test]
+    fn occupancy() {
+        let mut unit_station = Station::new(&mut 0, "TesterBoi2".to_string(), vec![(TrainType::Freight, 5), (TrainType::LowSpeed, 2)]);
+        unit_station.enter_station(unit_station.available_platform(TrainType::LowSpeed).unwrap());
+
+        assert_eq!(unit_station.platforms[5].occupied, true);
+        assert_eq!(unit_station.platforms[4].occupied, false);
+        assert_eq!(unit_station.platforms[6].occupied, false);
+
+        unit_station.enter_station(unit_station.available_platform(TrainType::LowSpeed).unwrap());
+
+        assert_eq!(unit_station.platforms[6].occupied, true);
+        assert_eq!(unit_station.platforms[5].occupied, true);
+        assert_eq!(unit_station.platforms[4].occupied, false);
     }
 }
 
