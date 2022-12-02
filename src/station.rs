@@ -50,6 +50,7 @@ impl Station {
         plat_vec
     }
 
+    // Hey this is cute. 
     // method to get an empty/available platform. This is useful to 
     // allocate a spot for a new train to be spawned in.
     pub fn available_platform(&self, plat_type: TrainType) -> Option<u8> {
