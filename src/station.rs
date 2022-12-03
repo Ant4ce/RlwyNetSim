@@ -3,10 +3,11 @@ mod platform;
 
 use crate::train::TrainType;
 
+#[derive( Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Station {
-    platforms: Vec<platform::Platform>,
     id: u32,
     name: String,
+    platforms: Vec<platform::Platform>,
 }
 
 pub enum PlatformError {
@@ -21,9 +22,9 @@ impl Station {
 
 
         /*station_map.insert(id.clone(),*/ Station {
-            platforms: platforms,
             id: id.clone(),
             name: name,
+            platforms: platforms,
         }
         //);
         //id.clone()
