@@ -3,11 +3,11 @@ mod platform;
 
 use crate::train::TrainType;
 
-#[derive(Debug)]
+#[derive( Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Station {
-    platforms: Vec<platform::Platform>,
     id: u32,
     name: String,
+    platforms: Vec<platform::Platform>,
 }
 
 #[derive(Debug)]
@@ -33,9 +33,9 @@ impl Station {
         }
 
         Station {
-            platforms: all_platforms,
             id: id.clone(),
             name: name,
+            platforms: all_platforms,
         }
     }
 

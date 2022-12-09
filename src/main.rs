@@ -4,6 +4,9 @@ pub mod line;
 
 use std::collections::HashMap;
 use crate::train::TrainType;
+use std::hash::Hash;
+use petgraph::graphmap::UnGraphMap;
+use petgraph::dot::Dot;
 
 fn main() {
     
@@ -11,28 +14,22 @@ fn main() {
     let mut station_id_counter: u32 = 0; 
     let mut route_id_counter: u32 = 0; 
 
+    let mut graph = UnGraphMap::<_, ()>::new();
 
     //let mut station_identification: HashMap<u32, station::Station> = HashMap::new();
 
     // when calling the constructor of station be sure to 
     // insert the returned station Object into the HashMap.
 
-    //let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
 
-    //let test_dos = station::Station::new(&mut station_id_counter, "dos".to_string(), station::Station::platform_gen(4, TrainType::LowSpeed));
+    let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
+    let test_2 = station::Station::new(&mut station_id_counter, "numba2".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
+    
+    graph.add_node(&test_station);
+    graph.add_node(&test_2);
+    graph.add_edge(&test_station, &test_2, ());
 
-    //println!("{:?}", test_station);
-    //println!("{:?}", test_dos);
-    let mut test_station = station::Station::new(&mut station_id_counter, "AStat".to_string(), vec![(TrainType::LowSpeed, 3), (TrainType::Freight, 5)]);
-    //println!("{:?}", test_station);
-
-    //println!("{}", test_station.available_platform(TrainType::Freight).unwrap());
-
-    test_station.enter_station(test_station.available_platform(TrainType::Freight).unwrap());
-
-    test_station.enter_station(6);
-    test_station.leave_station(3);
-    println!("{:?}", test_station);
+    println!("{:?}", Dot::new(&graph));
 }
 
 
