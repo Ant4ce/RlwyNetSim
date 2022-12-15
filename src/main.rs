@@ -22,8 +22,8 @@ fn main() {
     // insert the returned station Object into the HashMap.
 
 
-    let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
-    let test_2 = station::Station::new(&mut station_id_counter, "numba2".to_string(), station::Station::platform_gen(2, TrainType::LowSpeed) ); 
+    let test_station = station::Station::new(&mut station_id_counter, "ASTAT".to_string(), vec![(2, TrainType::LowSpeed),(3, TrainType::Freight)]); 
+    let test_2 = station::Station::new(&mut station_id_counter, "numba2".to_string(), vec![(2, TrainType::LowSpeed), (7, TrainType::HighSpeed)]); 
     
     graph.add_node(&test_station);
     graph.add_node(&test_2);

@@ -21,31 +21,31 @@ impl Station {
         
         let mut platform_id : u8 = 0;
 
-        *id += 1;
-
         let mut all_platforms : Vec<platform::Platform> = Vec::new();
         for (pf_num, pf_type) in platform_nums {
-            for plat in Self::platform_gen(pf_num, pf_type/*, &mut platform_id*/) {
-                //let copy = plat.clone();
+            for plat in Self::platform_gen(pf_num, pf_type, &mut platform_id) {
                 all_platforms.push(plat);
-                //println!("pushed a platform: {:?}", copy );
             }
         }
 
-        Station {
+        let The_Station = Station {
             id: id.clone(),
             name: name,
             platforms: all_platforms,
-        }
+        };
+
+        *id += 1;
+        
+        The_Station
     }
 
-    pub fn platform_gen(number: u8, platform_type: TrainType/*, id: &mut u8*/) -> Vec<platform::Platform> {
+    pub fn platform_gen(number: u8, platform_type: TrainType, id: &mut u8) -> Vec<platform::Platform> {
         let mut plat_vec = Vec::new();
 
-        for x in 0..number {
-            let a_plat = platform::Platform::new(x, platform_type);
+        for _ in 0..number {
+            let a_plat = platform::Platform::new(id.clone(), platform_type);
             plat_vec.push(a_plat);
-            //*id += 1;
+            *id += 1;
         } 
         plat_vec
     }
