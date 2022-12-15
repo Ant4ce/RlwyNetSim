@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn station_attributes() {
         
-        let unit_station =  Station::new(&mut 0, "TesterBoi".to_string(), vec![(TrainType::Freight, 3), (TrainType::LowSpeed, 1)]);
+        let unit_station =  Station::new(&mut 0, "TesterBoi".to_string(), vec![( 3,TrainType::Freight), ( 1, TrainType::LowSpeed,)]);
 
         assert_eq!(unit_station.name, "TesterBoi".to_string());
         assert_eq!(unit_station.platforms[0], platform::Platform { id: 0, occupied: false, platform_type: TrainType::Freight});
@@ -118,14 +118,14 @@ mod tests {
     #[test]
     fn plat_availability_test() {
 
-        let unit_station =  Station::new(&mut 0, "TesterBoi".to_string(), vec![(TrainType::HighSpeed, 3), (TrainType::LowSpeed, 2)]);
+        let unit_station =  Station::new(&mut 0, "TesterBoi".to_string(), vec![(3, TrainType::HighSpeed), (2, TrainType::LowSpeed)]);
         
         assert_eq!(unit_station.available_platform(TrainType::LowSpeed).unwrap(), 3);
 
     }
     #[test]
     fn occupancy() {
-        let mut unit_station = Station::new(&mut 0, "TesterBoi2".to_string(), vec![(TrainType::Freight, 5), (TrainType::LowSpeed, 2)]);
+        let mut unit_station = Station::new(&mut 0, "TesterBoi2".to_string(), vec![(5, TrainType::Freight), (2, TrainType::LowSpeed)]);
         unit_station.enter_station(unit_station.available_platform(TrainType::LowSpeed).unwrap());
 
         assert_eq!(unit_station.platforms[5].occupied, true);
