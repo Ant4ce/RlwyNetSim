@@ -5,9 +5,9 @@ use crate::train::TrainType;
 
 #[derive( Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Station {
-    id: u32,
-    name: String,
-    platforms: Vec<platform::Platform>,
+    pub id: u32,
+    pub name: String,
+    pub platforms: Vec<platform::Platform>,
 }
 
 #[derive(Debug)]
