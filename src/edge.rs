@@ -1,7 +1,7 @@
 #[derive(PartialEq, Clone, Debug)]
 pub struct Edger {
     id: u32,
-    name: String,
+    pub name: String,
     start_station: u32,
     end_station: u32,
 }
