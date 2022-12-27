@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use crate::station::Station;
 
-struct Train {
+#[derive(Debug)]
+pub struct Train {
     id: u32,
     model: String,
     dir_forward: bool,

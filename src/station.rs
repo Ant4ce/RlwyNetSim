@@ -2,12 +2,14 @@ mod platform;
 
 
 use crate::train::TrainType;
+use crate::train::Train;
 
-#[derive( Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive( Debug)]
 pub struct Station {
     pub id: u32,
     pub name: String,
     pub platforms: Vec<platform::Platform>,
+    pub trains: Vec<Train>,
 }
 
 #[derive(Debug)]
@@ -20,6 +22,7 @@ impl Station {
     pub fn new(id: &mut u32, name: String, platform_nums: Vec<(u8, TrainType)> ) -> Station{
         
         let mut platform_id : u8 = 0;
+        let mut vec_trains: Vec<Train> = vec![];
 
         let mut all_platforms : Vec<platform::Platform> = Vec::new();
         for (pf_num, pf_type) in platform_nums {
@@ -32,6 +35,7 @@ impl Station {
             id: id.clone(),
             name: name,
             platforms: all_platforms,
+            trains: vec_trains,
         };
 
         *id += 1;

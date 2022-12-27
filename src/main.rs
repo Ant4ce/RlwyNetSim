@@ -3,7 +3,6 @@ pub mod train;
 pub mod line;
 pub mod edge;
 
-use std::collections::HashMap;
 use crate::train::TrainType;
 use crate::station::Station;
 
