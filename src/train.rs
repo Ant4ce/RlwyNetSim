@@ -19,13 +19,13 @@ pub enum TrainType {
 }
 
 impl Train {
-    fn new(id: &mut u32 , model: String, dir_forward: bool, train_type: TrainType, location: u32, route: String, station_identifier: &mut HashMap<u32, Station>) -> Train {
+    pub fn new(id: &mut u32 , model: String, dir_forward: bool, train_type: TrainType, location: u32, route: String, /*station_identifier: &mut HashMap<u32, Station>*/) -> Train {
         *id  += 1;
 
-        let start_station: &mut Station = station_identifier.get_mut(&location).unwrap();
+        //let start_station: &mut Station = station_identifier.get_mut(&location).unwrap();
         // TODO handle lifetimes for the locations
-        let empty_plat = start_station.available_platform(TrainType::LowSpeed).unwrap();
-        start_station.enter_station(empty_plat);
+        //let empty_plat = start_station.available_platform(TrainType::LowSpeed).unwrap();
+        //start_station.enter_station(empty_plat);
 
         Train {
             id: id.clone(),
