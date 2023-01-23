@@ -1,7 +1,7 @@
 use std::{sync::{mpsc, Arc, Mutex}, thread};
 
 pub struct ThreadPool {
-    threads: Vec<Worker>,
+    workers: Vec<Worker>,
     sender: Option<mpsc::Sender<Job>>,
 }
 
@@ -11,9 +11,9 @@ impl ThreadPool {
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
 
-        let mut workers = Vec::with_capacity(size);
+        let (sender, receiver) = mpsc::channel();
 
-        let mut (sender, receiver) = mpsc::channel();
+        let mut workers = Vec::with_capacity(size);
 
         let receiver = Arc::new(Mutex::new(receiver));
 
@@ -61,12 +61,24 @@ impl Worker {
         // Consider using std::thread::Builder as it will return a Result type instead of panicking
         // like thread::spawn will if the OS can't generate enough threads due to lacking system
         // resources.
-        let thread = thread::spwan(move || loop {
-            let job = receiver.lock().unwrap().recv().unwrap();
-            println!("Worker {id} got a job; executing.");
-            job();
+        let thread = thread::spawn(move || loop {
+            let message = receiver.lock().unwrap().recv();
+            match message {
+                Ok(job) => {
+                    println!("Worker {id} got a job; executing.");
+
+                    job();
+                }
+                Err(_) => {
+                    println!("worker {id} disconnected; shutting down.");
+                    break;
+                }
+            }
         });
 
-        Worker {id, thread}
+        Worker {
+            id, 
+            thread: Some(thread),
+        }
     }
 }
