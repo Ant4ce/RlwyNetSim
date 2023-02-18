@@ -4,10 +4,14 @@ pub mod line;
 pub mod edge;
 pub mod threadpool;
 
+use std::any::Any;
 use crate::train::TrainType;
 use crate::station::Station;
 use crate::train::Train;
 
+use std::sync::{Arc, Mutex};
+use std::thread;
+use petgraph::data::{DataMap, DataMapMut};
 use petgraph::stable_graph::StableGraph;
 use petgraph::dot::Dot;
 use petgraph::Undirected;
@@ -25,15 +29,41 @@ fn main() {
     // THREAD POOL
     // END THREAD POOL
 
-    let mut graph = StableGraph::<Station, Edger>::new();
+    let mut graph = StableGraph::<Arc<Mutex<Station>>, Edger>::new();
 
-    let test_station = station::Station::new(&mut station_id_counter, "Geneve".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]); 
-    let test_2 = station::Station::new(&mut station_id_counter, "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]); 
-    
-    let origin_ind = graph.add_node(test_station);
-    let destination_ind = graph.add_node(test_2);
-    let connection_ind = graph.add_edge(origin_ind, destination_ind, Edger::new(&mut route_id_counter, "big_boi_connec".to_string(), graph.node_weight(origin_ind).unwrap().id.clone(), graph.node_weight(destination_ind).unwrap().id.clone()));
+    let test_station = Arc::new(Mutex::new(station::Station::new(&mut station_id_counter, "Geneve".to_string(),
+                                                                 vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)])));
+    let test_2 = Arc::new(Mutex::new(station::Station::new(&mut station_id_counter, "Eindhoven".to_string(),
+                                                                   vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)])));
 
+    let cp_test_station = Arc::clone(&test_station);
+
+    let origin_ind = graph.add_node(cp_test_station);
+    let destination_ind =graph.add_node(test_2);
+    let start_station_id = graph.node_weight(origin_ind).unwrap().lock().unwrap().id.clone();
+    let end_station_id = graph.node_weight(destination_ind).unwrap().lock().unwrap().id.clone();
+
+    let connection_ind = graph.add_edge(origin_ind, destination_ind, Edger::new(&mut route_id_counter, "big_boi_connec".to_string(),
+                                                start_station_id,
+                                                end_station_id));
+
+
+    //CONCURRENCY test
+    let mut handles = vec![];
+
+    for Xer in 0..10 {
+        let node_copy_1 = Arc::clone(&test_station);
+        let handle = thread::spawn(move || {
+            let mut extract = node_copy_1.lock().unwrap();
+            extract.name.push_str("world");
+        });
+        handles.push(handle);
+    }
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    println!("Result: {:?}", graph.node_weight(origin_ind));
     
     //println!("{:?}", Dot::new(&graph));
     //This part shows that we have mutability of the values inside the graph. So we can change the
@@ -45,10 +75,8 @@ fn main() {
     //let edge_filler: &mut Edger = graph.edge_weight_mut(connection_ind).unwrap();
     //edge_filler.name = "my_new_form".to_string();
     //println!("weight of edge is now: {:?}", edge_filler);
-
+    /*
     println!("{} NEW SECTION {}", "#".repeat(20),"#".repeat(20));
-
-    //println!("{:?}", graph.node_weight(origin_ind).unwrap());
 
     let new_node: &mut Station = graph.node_weight_mut(origin_ind).unwrap();
     new_node.name = "Berlin".to_string(); 
@@ -59,7 +87,7 @@ fn main() {
     println!("{:?}", new_node);
     println!("{} NEW SECTION {}", "#".repeat(20),"#".repeat(20));
     println!("{:?}", Dot::new(&graph));
-    
+    */
 
 }
 
