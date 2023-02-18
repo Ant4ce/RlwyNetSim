@@ -10,7 +10,8 @@ use crate::station::Station;
 use crate::train::Train;
 
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{thread, time::Duration};
+use macroquad::prelude::coroutines::wait_seconds;
 use petgraph::data::{DataMap, DataMapMut};
 use petgraph::stable_graph::StableGraph;
 use petgraph::dot::Dot;
@@ -37,9 +38,11 @@ fn main() {
                                                                    vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)])));
 
     let cp_test_station = Arc::clone(&test_station);
+    let cp_test_2 = Arc::clone(&test_2);
 
     let origin_ind = graph.add_node(cp_test_station);
-    let destination_ind =graph.add_node(test_2);
+    let destination_ind =graph.add_node(cp_test_2);
+
     let start_station_id = graph.node_weight(origin_ind).unwrap().lock().unwrap().id.clone();
     let end_station_id = graph.node_weight(destination_ind).unwrap().lock().unwrap().id.clone();
 
@@ -51,19 +54,37 @@ fn main() {
     //CONCURRENCY test
     let mut handles = vec![];
 
-    for Xer in 0..10 {
-        let node_copy_1 = Arc::clone(&test_station);
-        let handle = thread::spawn(move || {
-            let mut extract = node_copy_1.lock().unwrap();
-            extract.name.push_str("world");
-        });
-        handles.push(handle);
-    }
+    let node_start_copy = Arc::clone(&test_station);
+    let handle_start = thread::spawn(move || {
+        let mut extract1 = node_start_copy.lock().unwrap();
+        println!("time has stopped");
+        thread::sleep(Duration::from_secs(5));
+        extract1.name.push_str("za Warudo");
+        println!("Jotaro has moved")
+    });
+    handles.push(handle_start);
+
+    let node_end_copy = Arc::clone(&test_2);
+    let handle_end = thread::spawn(move || {
+        let mut extract2 = node_end_copy.lock().unwrap();
+        extract2.name.push_str("Dio moves in time thread");
+        println!("Dio has moved");
+    });
+    handles.push(handle_end);
+
+    //for Xer in 0..10 {
+    //    let node_copy_1 = Arc::clone(&test_station);
+    //    let handle = thread::spawn(move || {
+    //        let mut extract = node_copy_1.lock().unwrap();
+    //        extract.name.push_str("world");
+    //    });
+    //    handles.push(handle);
+    //}
     for handle in handles {
         handle.join().unwrap();
     }
 
-    println!("Result: {:?}", graph.node_weight(origin_ind));
+    println!("Result start station: {:?}, the end station: {:?}", graph.node_weight(origin_ind), graph.node_weight(destination_ind));
     
     //println!("{:?}", Dot::new(&graph));
     //This part shows that we have mutability of the values inside the graph. So we can change the
