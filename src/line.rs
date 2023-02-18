@@ -1,10 +1,11 @@
-mod route;
+pub mod route;
 
 enum LineError {
    RemoveSegmentError,
    NoCommonStationError,
 }
 
+/*
 struct Line<'a> {
    id: u32,
    name: String,
@@ -158,3 +159,4 @@ impl<'a> Line<'a> {
         Err(LineError::RemoveSegmentError)
     }
 }
+*/

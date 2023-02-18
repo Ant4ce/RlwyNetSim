@@ -4,7 +4,7 @@ mod platform;
 use crate::train::TrainType;
 use crate::train::Train;
 
-#[derive( Debug)]
+#[derive( Debug, PartialEq)]
 pub struct Station {
     pub id: u32,
     pub name: String,

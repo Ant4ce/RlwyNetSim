@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::station::Station;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Train {
     id: u32,
     model: String,
