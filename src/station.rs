@@ -43,14 +43,13 @@ impl Station {
         The_Station
     }
 
-    pub fn platform_gen(number: u8, platform_type: TrainType, id: &mut u8) -> Vec<platform::Platform> {
+    pub fn platform_gen(number: u8, platform_type: TrainType) -> Vec<platform::Platform> {
         let mut plat_vec = Vec::new();
 
-        for _ in 0..number {
+        for id in 0..number {
             let a_plat = platform::Platform::new(id.clone(), platform_type);
             plat_vec.push(a_plat);
-            *id += 1;
-        } 
+        }
         plat_vec
     }
 
