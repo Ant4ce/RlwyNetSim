@@ -26,7 +26,7 @@ impl Station {
 
         let mut all_platforms : Vec<platform::Platform> = Vec::new();
         for (pf_num, pf_type) in platform_nums {
-            for plat in Self::platform_gen(pf_num, pf_type) {
+            for plat in Self::platform_gen(pf_num, pf_type, &mut platform_id) {
                 all_platforms.push(plat);
             }
         }
@@ -103,7 +103,7 @@ mod tests {
     //Tests run on the generation of platforms.
     #[test]
     fn num_of_plats_gen() {
-        assert_eq!(Station::platform_gen(6, TrainType::Freight).len(), 6);
+        assert_eq!(Station::platform_gen(6, TrainType::Freight, &mut 0).len(), 6);
     }
 
 
