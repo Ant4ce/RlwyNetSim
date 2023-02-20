@@ -39,9 +39,8 @@ pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Ar
     let mut related_routes: Vec<(String, Vec<EdgeIndex>)> = vec![];
     for b in hold_names_indexes {
         let (name, edge) = b;
-        let mut temp_item = related_routes.iter().find(|&&x| x.0 == name);
+        let mut temp_item = related_routes.iter_mut().find(|x| *x.0 == name);
         match temp_item {
-
             Some(v)  => v.1.push(edge),
             None => related_routes.push((name, vec![edge])),
             _ => continue,
