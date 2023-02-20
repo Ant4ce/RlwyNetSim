@@ -32,13 +32,12 @@ mod tests {
         let mut test_graph = StableGraph::<Arc<Mutex<Station>>,
             Arc<Mutex<Route>>>::new();
 
-        let mut fake_id:u32 = 0;
-        let test_station = Station::new(&mut fake_id, String::from("Berlin"),
-                                        vec![(1, TrainType::LowSpeed)]);
-        let test_graph_ind = add_station_to_graph(&mut test_graph, test_station);
+        let test_graph_ind = add_station_to_graph(&mut test_graph, &mut 0,
+                                                  String::from("Berlin"),
+                                                  vec![(1, TrainType::LowSpeed)]);
         assert_eq!(test_graph.node_weight(test_graph_ind).unwrap().lock().unwrap().name,
                    String::from("Berlin"));
-        let mut compare_station = Station::new(&mut (fake_id-1), String::from("Berlin"),
+        let mut compare_station = Station::new(&mut 0, String::from("Berlin"),
                          vec![(1, TrainType::LowSpeed)]);
         assert_eq!(*test_graph.node_weight(test_graph_ind).unwrap().lock().unwrap(), compare_station);
     }
@@ -49,17 +48,18 @@ mod tests {
             Arc<Mutex<Route>>>::new();
 
         let mut fake_id:u32 = 0;
-        let test_station_a = Station::new(&mut fake_id, String::from("Berlin"),
-                                        vec![(1, TrainType::LowSpeed)]);
-        let test_station_b = Station::new(&mut fake_id, String::from("Moscow"),
-                                          vec![(1, TrainType::LowSpeed), (1, TrainType::HighSpeed)]);
-        let test_route = Route::new(&mut fake_id, String::from("NordStream"),
-                                    test_station_a.id.clone(), test_station_b.id.clone());
-        let compare_test_route = test_route.clone();
-        let test_graph_ind_a = add_station_to_graph(&mut test_graph, test_station_a);
-        let test_graph_ind_b = add_station_to_graph(&mut test_graph, test_station_b);
+        let compare_test_route = Route::new(&mut 2, String::from("NordStream"));
+
+        let test_graph_ind_a = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                    String::from("Berlin"),
+                                                    vec![(1, TrainType::LowSpeed)]);
+        let test_graph_ind_b = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                    String::from("Moscow"),
+                                                    vec![(1, TrainType::LowSpeed),
+                                                         (1, TrainType::HighSpeed)]);
         let test_graph_edge = add_route_to_graph(&mut test_graph, test_graph_ind_a,
-                                                 test_graph_ind_b, test_route);
+                                                 test_graph_ind_b, &mut fake_id,
+                                                 String::from("NordStream"));
         assert_eq!(*test_graph.edge_weight(test_graph_edge).unwrap().lock().unwrap().name,
                    String::from("NordStream"));
         assert_eq!(*test_graph.edge_weight(test_graph_edge).unwrap().lock().unwrap(), compare_test_route);

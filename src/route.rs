@@ -6,12 +6,13 @@ pub struct Route {
 
 impl Route {
     pub fn new(id: &mut u32,name: String) -> Route {
-        *id += 1;
 
-        Route{
+        let route = Route{
             id: id.clone(),
             name,
-        }
+        };
+        *id += 1;
+        route
     }
 }
 
@@ -23,6 +24,6 @@ mod tests {
     fn adding_route() {
         let test_route = Route::new(&mut 0, String::from("Geneva"));
         assert_eq!((test_route.id, test_route.name),
-                   (1, String::from("Geneva")));
+                   (0, String::from("Geneva")));
     }
 }
