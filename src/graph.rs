@@ -1,9 +1,14 @@
 use std::sync::{Arc, Mutex};
 use petgraph::data::DataMap;
+use petgraph::graph::Node;
 use petgraph::stable_graph::StableGraph;
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use crate::{station::Station, route::Route};
 use crate::train::TrainType;
+
+use petgraph::stable_graph::Edges;
+use petgraph::Directed;
+use petgraph::visit::EdgeRef;
 
 pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
                             id: &mut u32, name: String,
@@ -18,6 +23,31 @@ pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex
 
     let new_route = Route::new(route_id, name);
     graph.add_edge(station_a, station_b, Arc::new(Mutex::new(new_route)))
+}
+
+pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
+                                        index_node: NodeIndex)  {
+
+    let e_neighbours: Edges<Arc<Mutex<Route>>, Directed> = graph.edges(index_node);
+    let mut hold_names_indexes: Vec<(String, EdgeIndex)> = vec![];
+
+    for x in e_neighbours {
+        let a = x.clone().weight();
+        let name_route = a.lock().unwrap().name.clone();
+        hold_names_indexes.push((name_route, x.id()));
+    }
+    let mut related_routes: Vec<(String, Vec<EdgeIndex>)> = vec![];
+    for b in hold_names_indexes {
+        let (name, edge) = b;
+        let mut temp_item = related_routes.iter().find(|&&x| x.0 == name);
+        match temp_item {
+
+            Some(v)  => v.1.push(edge),
+            None => related_routes.push((name, vec![edge])),
+            _ => continue,
+        };
+    }
+
 }
 
 #[cfg(test)]
