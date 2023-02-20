@@ -1,6 +1,6 @@
 pub mod station;
 pub mod train;
-pub mod line;
+pub mod route;
 pub mod threadpool;
 pub mod graph;
 
@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use crate::train::TrainType;
 use crate::station::Station;
 use crate::train::Train;
-use crate::line::route::Route;
+use crate::route::Route;
 
 use petgraph::stable_graph::StableGraph;
 use petgraph::dot::Dot;

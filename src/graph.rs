@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use petgraph::data::DataMap;
 use petgraph::stable_graph::StableGraph;
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
-use crate::{station::Station, line::route::Route};
+use crate::{station::Station, route::Route};
 use crate::train::TrainType;
 
 pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
