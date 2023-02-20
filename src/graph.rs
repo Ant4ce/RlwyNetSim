@@ -1,17 +1,23 @@
 use std::sync::{Arc, Mutex};
+use petgraph::data::DataMap;
 use petgraph::stable_graph::StableGraph;
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use crate::{station::Station, line::route::Route};
+use crate::train::TrainType;
 
 pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
-                            station: Station) -> NodeIndex {
+                            id: &mut u32, name: String,
+                            platforms : Vec<(u8, TrainType)>) -> NodeIndex {
 
-    graph.add_node(Arc::new(Mutex::new(station)))
+    let new_station = Station::new(id, name, platforms);
+    graph.add_node(Arc::new(Mutex::new(new_station)))
 }
 pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
-                          station_a: NodeIndex, station_b: NodeIndex, route: Route) -> EdgeIndex {
+                          station_a: NodeIndex, station_b: NodeIndex, route_id: &mut u32,
+                          name: String) -> EdgeIndex {
 
-    graph.add_edge(station_a, station_b, Arc::new(Mutex::new(route)))
+    let new_route = Route::new(route_id, name);
+    graph.add_edge(station_a, station_b, Arc::new(Mutex::new(new_route)))
 }
 
 #[cfg(test)]
