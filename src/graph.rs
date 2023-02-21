@@ -1,3 +1,4 @@
+use std::fmt::Error;
 use std::sync::{Arc, Mutex};
 use petgraph::data::DataMap;
 use petgraph::graph::Node;
@@ -7,8 +8,13 @@ use crate::{station::Station, route::Route};
 use crate::train::TrainType;
 
 use petgraph::stable_graph::Edges;
-use petgraph::Directed;
-use petgraph::visit::EdgeRef;
+use petgraph::{Directed, Incoming, Outgoing};
+use petgraph::visit::{EdgeRef, IntoEdgesDirected};
+
+#[derive(Debug)]
+pub enum GraphError {
+    RemovingStation,
+}
 
 pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
                             id: &mut u32, name: String,
@@ -26,27 +32,53 @@ pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex
 }
 
 pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
-                                        index_node: NodeIndex)  {
+                                        index_node: NodeIndex, id_route_counter : &mut u32) -> Result<(), GraphError>  {
 
-    let e_neighbours: Edges<Arc<Mutex<Route>>, Directed> = graph.edges(index_node);
-    let mut hold_names_indexes: Vec<(String, EdgeIndex)> = vec![];
+    let e_neighbours_incoming = graph.edges_directed(index_node, Incoming);
+    let e_neighbours_outgoing = graph.edges_directed(index_node, Outgoing);
+    let mut edge_names_and_indexes: Vec<(String, EdgeIndex)> = vec![];
 
-    for x in e_neighbours {
-        let a = x.clone().weight();
-        let name_route = a.lock().unwrap().name.clone();
-        hold_names_indexes.push((name_route, x.id()));
+    for x in e_neighbours_incoming {
+        let name_route = x.weight().lock().unwrap().name.clone();
+        edge_names_and_indexes.push((name_route, x.id()));
+    }
+    for z in e_neighbours_outgoing {
+        let name_route = z.weight().lock().unwrap().name.clone();
+        edge_names_and_indexes.push((name_route, z.id()));
     }
     let mut related_routes: Vec<(String, Vec<EdgeIndex>)> = vec![];
-    for b in hold_names_indexes {
-        let (name, edge) = b;
+    for (name, edge) in edge_names_and_indexes {
         let mut temp_item = related_routes.iter_mut().find(|x| *x.0 == name);
         match temp_item {
             Some(v)  => v.1.push(edge),
             None => related_routes.push((name, vec![edge])),
-            _ => continue,
+            _ => panic!("Fails at removing node from graph: remove_station_from_graph(), impossible match default"),
         };
     }
+    //TODO: this currently filters out all related routes when there is not exactly 2 of them.
+    // This is done because when there was only one route of its kind, it needs to be deleted, as it
+    // visits no other station than the one deleted.
+    // All other cases we do not yet handle.
+    let mut pair_routes = related_routes.iter().filter(|x| x.1.len() == 2);
 
+    for line in pair_routes {
+        let route_name = line.0.clone();
+        let first_edge = graph.edge_endpoints(line.1[0]).unwrap();
+        let second_edge = graph.edge_endpoints(line.1[1]).unwrap();
+        let mut new_edge: (NodeIndex, NodeIndex);
+        if first_edge.0 == index_node {
+            new_edge = (second_edge.0, first_edge.1);
+        } else {
+            new_edge = (first_edge.0, second_edge.1);
+        }
+        add_route_to_graph(graph, new_edge.0, new_edge.1, id_route_counter, route_name);
+    }
+
+    let removed_node = graph.remove_node(index_node);
+    match removed_node {
+        Some(x) => Ok(()),
+        None => Err(GraphError::RemovingStation),
+    }
 }
 
 #[cfg(test)]
