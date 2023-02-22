@@ -11,7 +11,7 @@ use petgraph::stable_graph::Edges;
 use petgraph::{Directed, Incoming, Outgoing};
 use petgraph::visit::{EdgeRef, IntoEdgesDirected};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum GraphError {
     RemovingStation,
 }
@@ -23,6 +23,8 @@ pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mut
     let new_station = Station::new(id, name, platforms);
     graph.add_node(Arc::new(Mutex::new(new_station)))
 }
+//TODO: make sure that one station can not have two INCOMING routes of the same name without an
+// outgoing route and the same for two OUTGOING routes without an incoming route.
 pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
                           station_a: NodeIndex, station_b: NodeIndex, route_id: &mut u32,
                           name: String) -> EdgeIndex {
@@ -124,5 +126,74 @@ mod tests {
         assert_eq!(*test_graph.edge_weight(test_graph_edge).unwrap().lock().unwrap().name,
                    String::from("NordStream"));
         assert_eq!(*test_graph.edge_weight(test_graph_edge).unwrap().lock().unwrap(), compare_test_route);
+    }
+    #[test]
+    fn removing_a_route_from_graph() {
+        let mut test_graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+
+        let mut fake_id: u32 = 0;
+        let test_station_1 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                        String::from("Warsaw"),
+                                        vec![(1, TrainType::Freight), (2, TrainType::LowSpeed)]);
+
+        let test_station_2 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Madrid"),
+                                                  vec![(1, TrainType::HighSpeed), (2, TrainType::LowSpeed)]);
+        let test_station_3 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Paris"),
+                                                  vec![(1, TrainType::Freight), (2, TrainType::HighSpeed)]);
+
+        let test_edge_1 = add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"));
+        let test_edge_2 = add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"));
+
+        assert_eq!(true, test_graph.contains_node(test_station_3));
+
+        let removal = remove_station_from_graph(&mut test_graph, test_station_3, &mut fake_id);
+        // add the assertequal, to test wether removal worked.
+
+        assert_eq!(Ok(()), removal);
+        assert_eq!(test_graph.edges_connecting(test_station_1, test_station_2).count(), 1);
+        assert_eq!(false, test_graph.contains_node(test_station_3));
+
+    }
+    #[test]
+    fn  test_major_station_removal() {
+
+        let mut test_graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+
+        let mut fake_id: u32 = 0;
+        let test_station_1 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Warsaw"),
+                                                  vec![(1, TrainType::Freight), (2, TrainType::LowSpeed)]);
+        let test_station_2 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Madrid"),
+                                                  vec![(1, TrainType::HighSpeed), (2, TrainType::LowSpeed)]);
+        let test_station_3 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Paris"),
+                                                  vec![(1, TrainType::Freight), (3, TrainType::HighSpeed)]);
+        let test_station_4 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("London"),
+                                                  vec![(2, TrainType::Freight), (4, TrainType::HighSpeed)]);
+        let test_station_5 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Milan"),
+                                                  vec![(7, TrainType::Freight), (5, TrainType::HighSpeed)]);
+        let test_station_6 = add_station_to_graph(&mut test_graph, &mut fake_id,
+                                                  String::from("Pontsarn"),
+                                                  vec![(3, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
+
+        let test_edge_1 = add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"));
+        let test_edge_2 = add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"));
+        let test_edge_3 = add_route_to_graph(&mut test_graph, test_station_4, test_station_3, &mut fake_id, String::from("Loilan"));
+        let test_edge_4 = add_route_to_graph(&mut test_graph, test_station_3, test_station_5, &mut fake_id, String::from("Loilan"));
+        let test_edge_5 = add_route_to_graph(&mut test_graph, test_station_3, test_station_6, &mut fake_id, String::from("Parn"));
+
+        assert_eq!(true , test_graph.contains_node(test_station_3));
+
+        let removal = remove_station_from_graph(&mut test_graph, test_station_3, &mut fake_id);
+        assert_eq!(Ok(()), removal);
+        assert_eq!(test_graph.edges_connecting(test_station_1, test_station_2).count(), 1);
+        assert_eq!(test_graph.edges_connecting(test_station_4, test_station_5).count(), 1);
+        assert_eq!(test_graph.edges(test_station_6).count(), 0);
+        assert_eq!(false, test_graph.contains_node(test_station_3));
     }
 }
