@@ -1,14 +1,22 @@
 use std::collections::HashMap;
+use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use crate::station::Station;
+use crate::route::Route;
 
 #[derive(Debug, PartialEq)]
-pub struct Train {
+pub struct Train<T> {
     id: u32,
-    model: String,
+    train_type: TrainType,
+    location: Location<T>,
+    route_name: String,
     dir_forward: bool,
-    train_type: TrainType, 
-    location: u32,
-    route: String,
+    model: String,
+}
+
+pub struct TrainRegister<T> {
+    name: String,
+    next_train_id: u32,
+    train_list: Vec<Train<T>>
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -18,30 +26,48 @@ pub enum TrainType {
     HighSpeed,
 }
 
-impl Train {
-    pub fn new(id: &mut u32 , model: String, dir_forward: bool, train_type: TrainType, location: u32, route: String, /*station_identifier: &mut HashMap<u32, Station>*/) -> Train {
-        *id  += 1;
+impl<T> Train<T> {
+    fn new(id: &mut u32, train_type: TrainType, location: Location<T>,
+               route_name: String, dir_forward: bool, model: String) -> Train<T> {
 
-        //let start_station: &mut Station = station_identifier.get_mut(&location).unwrap();
-        // TODO handle lifetimes for the locations
-        //let empty_plat = start_station.available_platform(TrainType::LowSpeed).unwrap();
-        //start_station.enter_station(empty_plat);
-
-        Train {
+        let new_train = Train {
             id: id.clone(),
+            train_type,
+            location,
+            route_name,
+            dir_forward,
             model: "Passenger".to_string(),
-            dir_forward: true,
-            train_type: TrainType::LowSpeed,
-            location: location,
-            route: route,
-        }
-
+        };
+        *id += 1;
+        new_train
     }
-    
-    // This method will in the future be used to get station ID 
-    // based on which station was clicked on, but for now just gets the
-    // location (so ID of a station we pass it) and returns it. 
-    fn spawn_loc(location: u32) -> u32 {
-        location
-    } 
+
+}
+
+impl<T> TrainRegister<T> {
+    pub fn new(register_name: String) -> TrainRegister<T> {
+        TrainRegister {
+            name: register_name,
+            next_train_id: 0 as u32,
+            train_list: vec![]
+        }
+    }
+    pub fn add_train(&mut self, train_type: TrainType, location: Location<T>,
+                     route_name: String, dir_forward: bool, model: String) -> u32 {
+        let new_train = Train::new(&mut self.next_train_id, train_type, location,
+                                   route_name, dir_forward, model);
+        self.train_list.push(new_train);
+        self.next_train_id.clone() - 1
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Location<T> {
+    index: T,
+}
+
+impl<T> Location<T> {
+    pub fn get_location(&self) -> &T{
+        &self.index
+    }
 }

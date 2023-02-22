@@ -9,7 +9,6 @@ pub struct Station {
     pub id: u32,
     pub name: String,
     pub platforms: Vec<platform::Platform>,
-    pub trains: Vec<Train>,
 }
 
 #[derive(Debug)]
@@ -22,7 +21,6 @@ impl Station {
     pub fn new(id: &mut u32, name: String, platform_nums: Vec<(u8, TrainType)> ) -> Station{
         
         let mut platform_id : u8 = 0;
-        let mut vec_trains: Vec<Train> = vec![];
 
         let mut all_platforms : Vec<platform::Platform> = Vec::new();
         for (pf_num, pf_type) in platform_nums {
@@ -31,16 +29,15 @@ impl Station {
             }
         }
 
-        let The_Station = Station {
+        let the_station = Station {
             id: id.clone(),
             name: name,
             platforms: all_platforms,
-            trains: vec_trains,
         };
 
         *id += 1;
-        
-        The_Station
+
+        the_station
     }
 
     pub fn platform_gen(number: u8, platform_type: TrainType, id: &mut u8) -> Vec<platform::Platform> {
