@@ -5,7 +5,7 @@ pub struct Route {
 }
 
 impl Route {
-    pub fn new(id: &mut u32,name: String) -> Route {
+    pub fn new(id: &mut u32, name: String) -> Route {
 
         let route = Route{
             id: id.clone(),
