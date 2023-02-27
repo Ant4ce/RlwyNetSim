@@ -70,9 +70,11 @@ impl Train {
                              route_backward_name: &String,
                              called_recurs: bool) {
         current_graph.edges(*current_location)
+            //filter to get route's of the same name in either direction
             .filter(|y| compare_route_names(
                 &y.weight().lock().unwrap().name,
                 &route_forward_name, &route_backward_name))
+            //now move forward or backward depending on train direction and available route
             .for_each(|y| {
                 if self.dir_forward &&
                     &y.weight().lock().unwrap().name.chars().last().unwrap() == &'f' {
