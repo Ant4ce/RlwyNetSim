@@ -1,8 +1,10 @@
-use std::sync::{Arc, Mutex};
-use petgraph::stable_graph::{NodeIndex, EdgeIndex, EdgeReference};
+use std::sync::{Arc, mpsc, Mutex};
+use std::thread::JoinHandle;
+use petgraph::stable_graph::{NodeIndex, EdgeIndex, EdgeReference, StableGraph};
 use petgraph::visit::EdgeRef;
 use crate::station::Station;
 use crate::route::Route;
+use crate::threadpool::*;
 
 #[derive(Debug, PartialEq)]
 pub struct Train {
@@ -17,7 +19,7 @@ pub struct Train {
 pub struct TrainRegister {
     name: String,
     next_train_id: u32,
-    train_list: Vec<Train>
+    pub train_list: Vec<Train>
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]

@@ -5,14 +5,16 @@ pub mod threadpool;
 pub mod graph;
 
 use std::sync::{Arc, Mutex};
-use crate::train::TrainType;
+use crate::train::{TrainRegister, TrainType};
 use crate::station::Station;
-use crate::train::Train;
+use crate::train::{Train, Location};
 use crate::route::Route;
 
 use petgraph::stable_graph::StableGraph;
 use petgraph::dot::Dot;
 use petgraph::Undirected;
+use crate::graph::*;
+use crate::threadpool::ThreadPool;
 
 fn main() {
     
@@ -24,8 +26,25 @@ fn main() {
     //node weights.
     // see petgraph documentation at: https://docs.rs/petgraph/latest/petgraph/graphmap/struct.GraphMap.html  
 
-    let mut graph = Arc::new((StableGraph::<Station, Route>::new()));
+    let mut graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
 
-    let test_station = Station::new(&mut station_id_counter, "Geneve".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
-    let test_2 = Station::new(&mut station_id_counter, "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
+    let start_node = add_station_to_graph(&mut graph, &mut station_id_counter, "Geneve".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+    let middle_station = add_station_to_graph(&mut graph, &mut station_id_counter, "Paris".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+    let end_node= add_station_to_graph(&mut graph, &mut station_id_counter, "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
+
+    add_route_to_graph(&mut graph, start_node, middle_station, &mut route_id_counter, String::from("S1"), true);
+    add_route_to_graph(&mut graph, middle_station, end_node, &mut route_id_counter, String::from("S1"), true);
+
+    let mut register = TrainRegister::new(String::from("S-Bahn fleet"));
+    register.add_train(TrainType::Freight, Location::NodeTypeIndex(start_node), String::from("S1"), true, "Passenger".to_string());
+    register.add_train(TrainType::Freight, Location::NodeTypeIndex(middle_station), String::from("S1"), true, "Passenger".to_string());
+
+    let pool = ThreadPool::new(4);
+
+    for mut train in register.train_list {
+        let mut train_new = train;
+        let ref_graph = &graph.clone();
+        pool.execute(move|| train_new.move_forward(ref_graph));
+    }
+
 }
