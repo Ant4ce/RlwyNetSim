@@ -1,5 +1,5 @@
 use std::fmt::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use petgraph::data::DataMap;
 use petgraph::graph::Node;
 use petgraph::stable_graph::StableGraph;
@@ -16,16 +16,16 @@ pub enum GraphError {
     RemovingStation,
 }
 
-pub fn add_station_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
+pub fn add_station_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                             id: &mut u32, name: String,
                             platforms : Vec<(u8, TrainType)>) -> NodeIndex {
 
     let new_station = Station::new(id, name, platforms);
-    graph.add_node(Arc::new(Mutex::new(new_station)))
+    graph.write().unwrap().add_node(Arc::new(Mutex::new(new_station)))
 }
 //TODO: make sure that one station can not have two INCOMING routes of the same name without an
 // outgoing route and the same for two OUTGOING routes without an incoming route.
-pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
+pub fn add_route_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                           station_a: NodeIndex, station_b: NodeIndex, route_id: &mut u32,
                           name: String, bidirectional: bool)  {
     let (mut name_f, mut name_b) = (name.clone(), name.clone());
@@ -35,17 +35,18 @@ pub fn add_route_to_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex
     let new_route = Route::new(route_id, name_f);
     let new_route_reverse_direction = Route::new(route_id, name_b);
 
-    graph.add_edge(station_a, station_b, Arc::new(Mutex::new(new_route)));
+    graph.write().unwrap().add_edge(station_a, station_b, Arc::new(Mutex::new(new_route)));
     if bidirectional == true {
-        graph.add_edge(station_b, station_a, Arc::new(Mutex::new(new_route_reverse_direction)));
+        graph.write().unwrap().add_edge(station_b, station_a, Arc::new(Mutex::new(new_route_reverse_direction)));
     }
 }
 
-pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
+pub fn remove_station_from_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                                         index_node: NodeIndex, id_route_counter : &mut u32) -> Result<(), GraphError>  {
 
-    let e_neighbours_incoming = graph.edges_directed(index_node, Incoming);
-    let e_neighbours_outgoing = graph.edges_directed(index_node, Outgoing);
+    let mut graph_write = graph.write().unwrap();
+    let e_neighbours_incoming = graph_write.edges_directed(index_node, Incoming);
+    let e_neighbours_outgoing = graph_write.edges_directed(index_node, Outgoing);
     let mut edge_names_and_indexes: Vec<(String, EdgeIndex)> = vec![];
 
     for x in e_neighbours_incoming {
@@ -70,11 +71,11 @@ pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Ar
     // visits no other station than the one deleted.
     // All other cases we do not yet handle.
     let mut pair_routes = related_routes.iter().filter(|x| x.1.len() == 2);
-
+    std::mem::drop(graph_write);
     for line in pair_routes {
         let route_name = line.0.clone();
-        let first_edge = graph.edge_endpoints(line.1[0]).unwrap();
-        let second_edge = graph.edge_endpoints(line.1[1]).unwrap();
+        let first_edge = graph.read().unwrap().edge_endpoints(line.1[0]).unwrap();
+        let second_edge = graph.read().unwrap().edge_endpoints(line.1[1]).unwrap();
         let mut new_edge: (NodeIndex, NodeIndex);
         if first_edge.0 == index_node {
             new_edge = (second_edge.0, first_edge.1);
@@ -84,7 +85,7 @@ pub fn remove_station_from_graph(graph: &mut StableGraph<Arc<Mutex<Station>>, Ar
         add_route_to_graph(graph, new_edge.0, new_edge.1, id_route_counter, route_name, true);
     }
 
-    let removed_node = graph.remove_node(index_node);
+    let removed_node = graph.write().unwrap().remove_node(index_node);
     match removed_node {
         Some(x) => Ok(()),
         None => Err(GraphError::RemovingStation),
@@ -100,23 +101,23 @@ mod tests {
 
     #[test]
     fn adding_station() {
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>,
-            Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>,
+            Arc<Mutex<Route>>>::new()));
 
         let test_graph_ind = add_station_to_graph(&mut test_graph, &mut 0,
                                                   String::from("Berlin"),
                                                   vec![(1, TrainType::LowSpeed)]);
-        assert_eq!(test_graph.node_weight(test_graph_ind).unwrap().lock().unwrap().name,
+        assert_eq!(test_graph.read().unwrap().node_weight(test_graph_ind).unwrap().lock().unwrap().name,
                    String::from("Berlin"));
         let mut compare_station = Station::new(&mut 0, String::from("Berlin"),
                          vec![(1, TrainType::LowSpeed)]);
-        assert_eq!(*test_graph.node_weight(test_graph_ind).unwrap().lock().unwrap(), compare_station);
+        assert_eq!(*test_graph.read().unwrap().node_weight(test_graph_ind).unwrap().lock().unwrap(), compare_station);
     }
 
     #[test]
     fn adding_route_as_edge() {
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>,
-            Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>,
+            Arc<Mutex<Route>>>::new()));
 
         let mut fake_id:u32 = 0;
         let compare_test_route = Route::new(&mut 2, String::from("NordStreamf"));
@@ -132,19 +133,19 @@ mod tests {
         add_route_to_graph(&mut test_graph, test_graph_ind_a,
                                                  test_graph_ind_b, &mut fake_id,
                                                  String::from("NordStream"), true);
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
                    String::from("NordStreamf"));
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
 
         // testing that reverse direction edge was created.
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap().name,
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap().name,
                    String::from("NordStreamb"));
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap(), compare_test_route_reverse);
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap(), compare_test_route_reverse);
     }
     #[test]
     fn adding_uni_directional_edge() {
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>,
-            Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>,
+            Arc<Mutex<Route>>>::new()));
 
         let mut fake_id:u32 = 0;
         let compare_test_route = Route::new(&mut 2, String::from("NordStream2f"));
@@ -159,16 +160,16 @@ mod tests {
         add_route_to_graph(&mut test_graph, test_graph_ind_a,
                            test_graph_ind_b, &mut fake_id,
                            String::from("NordStream2"), false);
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
                    String::from("NordStream2f"));
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
 
     }
     #[test]
     #[should_panic]
     fn panicking_adding_uni_directional_edge() {
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>,
-            Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>,
+            Arc<Mutex<Route>>>::new()));
 
         let mut fake_id:u32 = 0;
         let compare_test_route = Route::new(&mut 2, String::from("NordStream2f"));
@@ -184,19 +185,19 @@ mod tests {
         add_route_to_graph(&mut test_graph, test_graph_ind_a,
                            test_graph_ind_b, &mut fake_id,
                            String::from("NordStream2"), false);
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
                    String::from("NordStream2f"));
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
 
         //check that reverse direction doesn't exist, this should cause a panic.
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap().name,
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap().name,
                    String::from("NordStream2b"));
-        assert_eq!(*(test_graph.edge_weight(test_graph.find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap(), compare_test_route);
 
     }
     #[test]
     fn removing_a_route_from_graph() {
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
 
         let mut fake_id: u32 = 0;
         let test_station_1 = add_station_to_graph(&mut test_graph, &mut fake_id,
@@ -213,20 +214,20 @@ mod tests {
         let test_edge_1 = add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"), true);
         let test_edge_2 = add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"), true);
 
-        assert_eq!(true, test_graph.contains_node(test_station_3));
+        assert_eq!(true, test_graph.read().unwrap().contains_node(test_station_3));
 
         let removal = remove_station_from_graph(&mut test_graph, test_station_3, &mut fake_id);
         // add the assertequal, to test wether removal worked.
 
         assert_eq!(Ok(()), removal);
-        assert_eq!(test_graph.edges_connecting(test_station_1, test_station_2).count(), 2);
-        assert_eq!(false, test_graph.contains_node(test_station_3));
+        assert_eq!(test_graph.read().unwrap().edges_connecting(test_station_1, test_station_2).count(), 2);
+        assert_eq!(false, test_graph.read().unwrap().contains_node(test_station_3));
 
     }
     #[test]
     fn  test_major_station_removal() {
 
-        let mut test_graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+        let mut test_graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
 
         let mut fake_id: u32 = 0;
         let test_station_1 = add_station_to_graph(&mut test_graph, &mut fake_id,
@@ -254,13 +255,13 @@ mod tests {
         let test_edge_4 = add_route_to_graph(&mut test_graph, test_station_3, test_station_5, &mut fake_id, String::from("Loilan"), false);
         let test_edge_5 = add_route_to_graph(&mut test_graph, test_station_3, test_station_6, &mut fake_id, String::from("Parn"), false);
 
-        assert_eq!(true , test_graph.contains_node(test_station_3));
+        assert_eq!(true , test_graph.read().unwrap().contains_node(test_station_3));
 
         let removal = remove_station_from_graph(&mut test_graph, test_station_3, &mut fake_id);
         assert_eq!(Ok(()), removal);
-        assert_eq!(test_graph.edges_connecting(test_station_1, test_station_2).count(), 1);
-        assert_eq!(test_graph.edges_connecting(test_station_4, test_station_5).count(), 1);
-        assert_eq!(test_graph.edges(test_station_6).count(), 0);
-        assert_eq!(false, test_graph.contains_node(test_station_3));
+        assert_eq!(test_graph.read().unwrap().edges_connecting(test_station_1, test_station_2).count(), 1);
+        assert_eq!(test_graph.read().unwrap().edges_connecting(test_station_4, test_station_5).count(), 1);
+        assert_eq!(test_graph.read().unwrap().edges(test_station_6).count(), 0);
+        assert_eq!(false, test_graph.read().unwrap().contains_node(test_station_3));
     }
 }

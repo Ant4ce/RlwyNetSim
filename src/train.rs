@@ -1,4 +1,4 @@
-use std::sync::{Arc, mpsc, Mutex};
+use std::sync::{Arc, mpsc, Mutex, RwLock};
 use std::thread::JoinHandle;
 use petgraph::stable_graph::{NodeIndex, EdgeIndex, EdgeReference, StableGraph};
 use petgraph::visit::EdgeRef;
@@ -16,6 +16,7 @@ pub struct Train {
     model: String,
 }
 
+#[derive(Debug)]
 pub struct TrainRegister {
     name: String,
     next_train_id: u32,
@@ -44,24 +45,27 @@ impl Train {
         *id += 1;
         new_train
     }
-    pub fn move_forward(&mut self, graph: &petgraph::stable_graph::StableGraph
-    <Arc<Mutex<Station>>, Arc<Mutex<Route>>>) {
+    pub fn move_forward(&mut self, graph: &Arc<RwLock<petgraph::stable_graph::StableGraph
+    <Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>) {
+
+        println!("before move : {:?}", self);
         let (mut route_forward_name, mut route_backward_name) =
             (self.route_name.clone(), self.route_name.clone());
         route_forward_name.push('f');
         route_backward_name.push('b');
         match self.location {
             Location::NodeTypeIndex(value) => {
-                self.change_train_location(graph, &value,
+                self.change_train_location(&*graph.read().unwrap(), &value,
                                      &route_forward_name, &route_backward_name, false)
             },
             Location::EdgeTypeIndex(value) => {
                 let filtered_edge =
-                    graph.edge_endpoints(value).unwrap().1;
+                    graph.read().unwrap().edge_endpoints(value).unwrap().1;
                 self.location = Location::NodeTypeIndex(filtered_edge);
             }
             _ => panic!("TrainLocation is neither NodeIndex nor EdgeIndex")
         };
+        println!("after : {:?}", self);
 
     }
     fn change_train_location(&mut self,
@@ -138,15 +142,16 @@ pub enum Location {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::RwLock;
     use petgraph::stable_graph::StableGraph;
     use super::*;
     use crate::graph;
     use crate::train::Location::{EdgeTypeIndex, NodeTypeIndex};
 
-    fn construct_scenario(fake_id: &mut u32) -> (StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
+    fn construct_scenario(fake_id: &mut u32) -> (Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                                                  NodeIndex, NodeIndex, NodeIndex) {
         let mut test_graph =
-            StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+            Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
         let station1 = graph::add_station_to_graph(&mut test_graph, fake_id,
                            String::from("Tokyo"), vec![(8, TrainType::LowSpeed),
                                                        (2, TrainType::HighSpeed)]);
@@ -175,18 +180,18 @@ mod tests {
         println!("Starting at NodeIndex(0)");
         test_fleet.train_list[0].move_forward(&test_graph);
         assert_eq!(test_fleet.train_list[0].location,
-                   EdgeTypeIndex(test_graph.find_edge(station1, station2).unwrap()));
+                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
         for _ in 0..3 { test_fleet.train_list[0].move_forward(&test_graph); }
         assert_eq!(test_fleet.train_list[0].location,
                    NodeTypeIndex(station3));
         println!("successfully reached endstation, time for a turnaround!");
         test_fleet.train_list[0].move_forward(&test_graph);
         assert_eq!(test_fleet.train_list[0].location,
-                   EdgeTypeIndex(test_graph.find_edge(station3, station2).unwrap()));
+                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station3, station2).unwrap()));
         println!("turnaround backwards worked!");
         for _ in 1..5 { test_fleet.train_list[0].move_forward(&test_graph); }
         assert_eq!(test_fleet.train_list[0].location,
-                   EdgeTypeIndex(test_graph.find_edge(station1, station2).unwrap()));
+                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
         println!("turnaround forwards worked, the train go around infinitely");
     }
 }
