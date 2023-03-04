@@ -4,13 +4,15 @@ mod platform;
 use crate::train::TrainType;
 use crate::train::Train;
 
+/// Station Struct
+/// These are the nodes in our graph.
 #[derive( Debug, PartialEq)]
 pub struct Station {
     pub id: u32,
     pub name: String,
     pub platforms: Vec<platform::Platform>,
 }
-
+/// Used to specify the different kinds of errors that the station constructor might throw.
 #[derive(Debug)]
 pub enum PlatformError {
         Booking,
@@ -18,6 +20,18 @@ pub enum PlatformError {
 
 
 impl Station {
+    /// Creates new Station
+    ///
+    /// Requires a name (String) and a Vector of platforms holding tuples of the number
+    /// of platforms you want for each TrainType.
+    ///
+    /// # Examples:
+    /// ```
+    /// // This creates a station called "Berlin" with 1 platform of type Freight
+    /// // and 3 of type LowSpeed.
+    /// let my_station = Station::new(id: &mut u32, name: String::from("Berlin"),
+    ///          platforms: vec![(1, TrainType::Freight), (3, TrainType::LowSpeed)]);
+    /// ```
     pub fn new(id: &mut u32, name: String, platform_nums: Vec<(u8, TrainType)> ) -> Station{
         
         let mut platform_id : u8 = 0;
@@ -40,6 +54,18 @@ impl Station {
         the_station
     }
 
+    /// Creates platforms
+    ///
+    /// Used to create a Vec with the given number of platforms for the given type.
+    /// Note the last number is the id (u8) and is handled in other
+    /// parts of Station constructor.
+    ///
+    /// # Example
+    /// ```
+    /// // This creates 3 platforms of type TrainType::LowSpeed.
+    /// let my_platforms = Station::platform_gen(3 , TrainType::LowSpeed, 1);
+    /// ```
+    // TODO: make private
     pub fn platform_gen(number: u8, platform_type: TrainType, id: &mut u8) -> Vec<platform::Platform> {
         let mut plat_vec = Vec::new();
 
@@ -51,9 +77,14 @@ impl Station {
         plat_vec
     }
 
-    // Hey this is cute. 
-    // method to get an empty/available platform. This is useful to 
-    // allocate a spot for a new train to be spawned in.
+    /// Returns id of an unoccupied platform of the specified TrainType.
+    /// The return type is Option<u8> where the u8 would be the id.
+    ///
+    /// # Example
+    /// ```
+    /// // Gives the id (wrapped in Option) of a station of type HighSpeed.
+    /// let my_open_platform = Station::available_platform( TrainType::HighSpeed);
+    /// ```
     pub fn available_platform(&self, plat_type: TrainType) -> Option<u8> {
         
         for plat in &self.platforms {
@@ -63,28 +94,26 @@ impl Station {
         }
         None
     }
-
+    /// Change a platforms occupied status to true.
+    ///
+    /// # Example
+    /// ```
+    /// // changes the occupied status of platform with id = 4 to true.
+    /// Station::enter_station(4);
+    /// ```
     pub fn enter_station( &mut self, booking_id: u8) /*-> Result<(), PlatformError>*/ {
-        // there is no need to loop over this, why have linear runtime ?? When we have the id to
-        // access it straight away. UPDATE THIS. 
-        //for mut plat in &mut self.platforms {
-        //   // REMEMBER: match is PATTERN MATCHING, so it matches on patterns not specific values.
-        //   // Here i use match guard, which is the "num if num == booking_id". This allows me to
-        //   // match on a specific value. Just matching on booking ID doesn't work.    
-        //    match plat.id {
-        //        num if num == booking_id  => {plat.occupied = true;  return Ok(())},
-        //        _ => continue,
-        //    }
-        //}
-        //Err(PlatformError::Booking)
-        
-        //*Improved version*
-        // Indexing into array requires usize so converted the u8 from booking_id to usize. 
-        self.platforms[usize::from(booking_id)].occupied = true; 
-        //Ok(())
-        //Err(PlatformError::Booking)
+        // TODO: Add error handling for when this fails, consider returning a Result<> type
+        //  with error type PlatformError.
+        self.platforms[usize::from(booking_id)].occupied = true;
     }
 
+    /// Change a platforms occupied status to false.
+    ///
+    /// # Example
+    /// ```
+    /// // changes the occupied status of platform with id = 2 to false.
+    /// Station::leave_station(2);
+    /// ```
     pub fn leave_station( &mut self, plat_id: u8) {
 
         self.platforms[usize::from(plat_id)].occupied = false;

@@ -11,11 +11,24 @@ use petgraph::stable_graph::Edges;
 use petgraph::{Directed, Incoming, Outgoing};
 use petgraph::visit::{EdgeRef, IntoEdgesDirected};
 
+/// Enum to hold various GraphError we can return for graph constructor.
 #[derive(Debug, PartialEq)]
 pub enum GraphError {
     RemovingStation,
 }
 
+/// Adds a station (Node) to the graph and returns it's NodeIndex
+///
+/// # Example
+/// ```
+/// let mut graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+/// let mut station_id_counter: u32 = 0;
+///
+/// // Adds the station with name Warsaw to the graph. It has 3 LowSpeed and
+/// // 1 Freight type platform.
+/// let start_node = add_station_to_graph(&mut graph, &mut station_id_counter,
+///     "Warsaw".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+/// ```
 pub fn add_station_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                             id: &mut u32, name: String,
                             platforms : Vec<(u8, TrainType)>) -> NodeIndex {
@@ -23,6 +36,29 @@ pub fn add_station_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station
     let new_station = Station::new(id, name, platforms);
     graph.write().unwrap().add_node(Arc::new(Mutex::new(new_station)))
 }
+/// Adds a route (Edge) to the graph, has no return.
+///
+/// The function takes graph of type: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>
+/// The Arc's, RwLock's and Mutex's are all to make sure the graph works concurrently
+///  for reading and writing access.
+///  The other parameters are the two NodeIndex of the stations, the route id as u32,
+///  the name of the Route as String and bideractional boolean to specify wether you want
+///  a route going in both directions between the nodes.
+///
+/// # Example
+/// ```
+/// let mut graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+/// let mut station_id_counter: u32 = 0;
+///
+/// let start_node = add_station_to_graph(&mut graph, &mut station_id_counter,
+///     "Warsaw".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+/// let end_node= add_station_to_graph(&mut graph, &mut station_id_counter,
+///     "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
+///
+/// // This adds the route "IE1" between Warsaw and Eindhoven. The last parameter of true
+/// // means we want both a going route and a returning route.
+/// add_route_to_graph(&mut graph, start_node, end_node, &mut route_id_counter, String::from("IE1"), true);
+/// ```
 //TODO: make sure that one station can not have two INCOMING routes of the same name without an
 // outgoing route and the same for two OUTGOING routes without an incoming route.
 pub fn add_route_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
@@ -41,6 +77,27 @@ pub fn add_route_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>
     }
 }
 
+/// Removes specified station from graph
+///
+/// This function will remove the specified node from the graph
+/// but not before creating new edges that will replace the edges that get
+/// removed along with the node. The edges it replaces are only those that
+/// have a incoming and outgoing one for their route. So if a line like "IE1"
+/// would pass through the node we are removing, and removing it would leave us with
+/// 2 disconnected "IE1" sections. This function makes sure that those 2 parts stay
+/// connected.
+///
+/// # Example
+/// ```
+/// let mut graph = StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new();
+/// let mut station_id_counter: u32 = 0;
+/// let mut route_id_counter: u32 = 0;
+///
+/// let start_node = add_station_to_graph(&mut graph, &mut station_id_counter,
+///     "Warsaw".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+///
+/// remove_station_from_graph(&mut graph, start_node, &mut route_id_counter);
+/// ```
 pub fn remove_station_from_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                                         index_node: NodeIndex, id_route_counter : &mut u32) -> Result<(), GraphError>  {
 
