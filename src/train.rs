@@ -16,6 +16,10 @@ pub struct Train {
     model: String,
 }
 
+/// A Register to contain many trains.
+///
+/// With such collection, all trains in a simulation can be moved according to the event loop.
+/// It also contains the id used for generating trains.
 #[derive(Debug)]
 pub struct TrainRegister {
     name: String,
@@ -45,10 +49,20 @@ impl Train {
         *id += 1;
         new_train
     }
+    /// Method for train to move forward.
+    ///
+    /// The current location is defined by the enum Train::Location, that tells whether the current
+    /// index on the graph is a NodeIndex or EdgeIndex.
+    ///
+    /// When on an edge, it moves to the connected Node in the edges direction,
+    /// as a directed graph is used.
+    ///
+    /// When train is currently on a node, find the next edge to go on and change location with the
+    /// helper function [change_train_location](Train::change_train_location).
+    ///
     pub fn move_forward(&mut self, graph: &Arc<RwLock<petgraph::stable_graph::StableGraph
     <Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>) {
 
-        println!("before move : {:?}", self);
         let (mut route_forward_name, mut route_backward_name) =
             (self.route_name.clone(), self.route_name.clone());
         route_forward_name.push('f');
@@ -65,9 +79,20 @@ impl Train {
             }
             _ => panic!("TrainLocation is neither NodeIndex nor EdgeIndex")
         };
-        println!("after : {:?}", self);
-
     }
+    /// Function to find, and switch Location to, the next appropriate Edge from a Node.
+    ///
+    /// Iterates over all outgoing edges of a node, and filters the edges that match line with the
+    /// Trains line. Differentiate forward- and backward direction of the line by the last letter and
+    /// match that with the trains own direction.
+    ///
+    /// If no edge exists for the direction that the train is facing, on the line the train is
+    /// assigned to, the trains direction is flipped and the function is called recursively.
+    ///
+    /// It can call itself once recursively and panics if doing so a second time, because then there
+    /// seems to be no path the train can take.
+    ///
+    // TODO: replace panic! on second recursive call with error handling
     fn change_train_location(&mut self,
                              current_graph: &petgraph::stable_graph::
                                 StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>,
@@ -99,7 +124,11 @@ impl Train {
     }
 
 }
-/// Compares forward- and backward variations of route names in Train and compares them to the route name in the graph
+/// Compares forward- and backward variations of route names in Train and compares them to the
+/// route name in the graph.
+///
+/// Note: The name of a route in a graph will either end with "f" or "b".
+/// "F" meaning forwards and "b" meaning backwards.
 ///
 /// # Examples
 /// ```
@@ -107,7 +136,7 @@ impl Train {
 ///     String::from("BerlinPotsdamf"),
 ///     String::from("BerlinPotsdamf"),
 ///     String::from("BerlinPotsdamb");
-/// asserteq!(true, compare_route_names(name_in_graph, route_name_fo, route_name_ba)
+/// asserteq!(true, compare_route_names(name_in_graph, route_name_fo, route_name_ba))
 /// ```
 fn compare_route_names(name_in_graph: &String,
                        route_name_forward_direction: &String,
@@ -125,6 +154,7 @@ impl TrainRegister {
             train_list: vec![]
         }
     }
+    /// This is the interface to use when creating a new train, as Train::new() is private
     pub fn add_train(&mut self, train_type: TrainType, location: Location,
                      route_name: String, dir_forward: bool, model: String) -> u32 {
         let new_train = Train::new(&mut self.next_train_id, train_type, location,
@@ -134,6 +164,7 @@ impl TrainRegister {
     }
 }
 
+/// Used solely for the train to take appropriate method for moving forward.
 #[derive(Debug, PartialEq)]
 pub enum Location {
     NodeTypeIndex(NodeIndex),
