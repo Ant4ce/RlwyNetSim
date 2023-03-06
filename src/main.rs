@@ -3,6 +3,7 @@ pub mod train;
 pub mod route;
 pub mod threadpool;
 pub mod graph;
+pub mod gui_mq;
 
 use std::sync::{Arc, Mutex, RwLock};
 use crate::train::{TrainRegister, TrainType};
@@ -14,7 +15,11 @@ use petgraph::stable_graph::StableGraph;
 use crate::graph::*;
 use crate::threadpool::ThreadPool;
 
-fn main() {
+use macroquad::prelude::*;
+use crate::gui_mq::window_conf;
+
+#[macroquad::main(window_conf)]
+async fn main() {
     
     let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
@@ -44,4 +49,18 @@ fn main() {
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
+    loop {
+        clear_background(GRAY);
+        draw_circle(screen_width()/2.,screen_height()/2., 50., RED);
+        let circle = Circle::new(screen_width()/2.,screen_height()/2., 50.);
+        if is_mouse_button_pressed(MouseButton::Left) {
+            let (mouse_x,mouse_y) = mouse_position();
+            let mouse_circ = Circle::new(mouse_x,mouse_y,1.);
+
+            if mouse_circ.overlaps(&circle) {
+                draw_circle(screen_width()/2.,screen_height()/2., 200., BLUE);
+            }
+        }
+        next_frame().await;
+    }
 }
