@@ -2,7 +2,6 @@ mod platform;
 
 
 use crate::train::TrainType;
-use crate::train::Train;
 
 /// Station Struct
 /// These are the nodes in our graph.
@@ -88,7 +87,7 @@ impl Station {
     pub fn available_platform(&self, plat_type: TrainType) -> Option<u8> {
         
         for plat in &self.platforms {
-            if (plat.occupied == false && plat.platform_type == plat_type) {
+            if plat.occupied == false && plat.platform_type == plat_type {
                 return Some(plat.id.clone())
             }
         }

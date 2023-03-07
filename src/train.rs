@@ -1,10 +1,9 @@
-use std::sync::{Arc, mpsc, Mutex, RwLock};
-use std::thread::JoinHandle;
-use petgraph::stable_graph::{NodeIndex, EdgeIndex, EdgeReference, StableGraph};
+use std::sync::{Arc, Mutex, RwLock};
+use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use petgraph::visit::EdgeRef;
 use crate::station::Station;
 use crate::route::Route;
-use crate::threadpool::*;
+
 
 #[derive(Debug, PartialEq)]
 pub struct Train {
@@ -44,7 +43,7 @@ impl Train {
             location,
             route_name,
             dir_forward,
-            model: "Passenger".to_string(),
+            model,
         };
         *id += 1;
         new_train
@@ -77,7 +76,6 @@ impl Train {
                     graph.read().unwrap().edge_endpoints(value).unwrap().1;
                 self.location = Location::NodeTypeIndex(filtered_edge);
             }
-            _ => panic!("TrainLocation is neither NodeIndex nor EdgeIndex")
         };
     }
     /// Function to find, and switch Location to, the next appropriate Edge from a Node.
@@ -109,10 +107,10 @@ impl Train {
             .for_each(|y| {
                 if self.dir_forward &&
                     &y.weight().lock().unwrap().name.chars().last().unwrap() == &'f' {
-                    self.location = Location::EdgeTypeIndex((y.id()));
+                    self.location = Location::EdgeTypeIndex(y.id());
                 } else if self.dir_forward == false &&
                     &y.weight().lock().unwrap().name.chars().last().unwrap() == &'b' {
-                    self.location = Location::EdgeTypeIndex((y.id()));
+                    self.location = Location::EdgeTypeIndex(y.id());
                 }
             });
         if self.location != Location::NodeTypeIndex(*current_location) { return }
@@ -202,7 +200,7 @@ mod tests {
     #[test]
     fn moving_train_from_node() {
         let mut fake_graph_id= 0;
-        let (mut test_graph, station1,
+        let (test_graph, station1,
             station2, station3) = construct_scenario(&mut fake_graph_id);
         let mut test_fleet = TrainRegister::new(String::from("Shinkansen_fleet"));
         test_fleet.add_train(TrainType::HighSpeed, Location::NodeTypeIndex(station1),

@@ -7,19 +7,16 @@ pub mod graph;
 use std::sync::{Arc, Mutex, RwLock};
 use crate::train::{TrainRegister, TrainType};
 use crate::station::Station;
-use crate::train::{Train, Location};
+use crate::train::{Location};
 use crate::route::Route;
 
 use petgraph::stable_graph::StableGraph;
-use petgraph::dot::Dot;
-use petgraph::Undirected;
 use crate::graph::*;
 use crate::threadpool::ThreadPool;
 
 fn main() {
     
-    let mut train_id_counter: u32 = 0; 
-    let mut station_id_counter: u32 = 0; 
+    let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
 
     //NEED to USE a DIFFERENT graph type, not GraphMap, is it doesn't allow for mutability in the

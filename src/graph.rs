@@ -1,15 +1,11 @@
-use std::fmt::Error;
 use std::sync::{Arc, Mutex, RwLock};
-use petgraph::data::DataMap;
-use petgraph::graph::Node;
 use petgraph::stable_graph::StableGraph;
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use crate::{station::Station, route::Route};
 use crate::train::TrainType;
 
-use petgraph::stable_graph::Edges;
-use petgraph::{Directed, Incoming, Outgoing};
-use petgraph::visit::{EdgeRef, IntoEdgesDirected};
+use petgraph::{Incoming, Outgoing};
+use petgraph::visit::{EdgeRef};
 
 /// Enum to hold various GraphError we can return for graph constructor.
 #[derive(Debug, PartialEq)]
@@ -101,9 +97,9 @@ pub fn add_route_to_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>
 pub fn remove_station_from_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
                                         index_node: NodeIndex, id_route_counter : &mut u32) -> Result<(), GraphError>  {
 
-    let mut graph_write = graph.write().unwrap();
-    let e_neighbours_incoming = graph_write.edges_directed(index_node, Incoming);
-    let e_neighbours_outgoing = graph_write.edges_directed(index_node, Outgoing);
+    let graph_read = graph.read().unwrap();
+    let e_neighbours_incoming = graph_read.edges_directed(index_node, Incoming);
+    let e_neighbours_outgoing = graph_read.edges_directed(index_node, Outgoing);
     let mut edge_names_and_indexes: Vec<(String, EdgeIndex)> = vec![];
 
     for x in e_neighbours_incoming {
@@ -116,24 +112,23 @@ pub fn remove_station_from_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<St
     }
     let mut related_routes: Vec<(String, Vec<EdgeIndex>)> = vec![];
     for (name, edge) in edge_names_and_indexes {
-        let mut temp_item = related_routes.iter_mut().find(|x| *x.0 == name);
+        let temp_item = related_routes.iter_mut().find(|x| *x.0 == name);
         match temp_item {
             Some(v)  => v.1.push(edge),
             None => related_routes.push((name, vec![edge])),
-            _ => panic!("Fails at removing node from graph: remove_station_from_graph(), impossible match default"),
         };
     }
     //TODO: this currently filters out all related routes when there is not exactly 2 of them.
     // This is done because when there was only one route of its kind, it needs to be deleted, as it
     // visits no other station than the one deleted.
     // All other cases we do not yet handle.
-    let mut pair_routes = related_routes.iter().filter(|x| x.1.len() == 2);
-    std::mem::drop(graph_write);
+    let pair_routes = related_routes.iter().filter(|x| x.1.len() == 2);
+    drop(graph_read);
     for line in pair_routes {
         let route_name = line.0.clone();
         let first_edge = graph.read().unwrap().edge_endpoints(line.1[0]).unwrap();
         let second_edge = graph.read().unwrap().edge_endpoints(line.1[1]).unwrap();
-        let mut new_edge: (NodeIndex, NodeIndex);
+        let new_edge: (NodeIndex, NodeIndex);
         if first_edge.0 == index_node {
             new_edge = (second_edge.0, first_edge.1);
         } else {
@@ -144,14 +139,13 @@ pub fn remove_station_from_graph(graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<St
 
     let removed_node = graph.write().unwrap().remove_node(index_node);
     match removed_node {
-        Some(x) => Ok(()),
+        Some(_) => Ok(()),
         None => Err(GraphError::RemovingStation),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use petgraph::data::DataMap;
     use super::*;
     use petgraph::stable_graph::StableGraph;
     use crate::train::TrainType;
@@ -166,7 +160,7 @@ mod tests {
                                                   vec![(1, TrainType::LowSpeed)]);
         assert_eq!(test_graph.read().unwrap().node_weight(test_graph_ind).unwrap().lock().unwrap().name,
                    String::from("Berlin"));
-        let mut compare_station = Station::new(&mut 0, String::from("Berlin"),
+        let compare_station = Station::new(&mut 0, String::from("Berlin"),
                          vec![(1, TrainType::LowSpeed)]);
         assert_eq!(*test_graph.read().unwrap().node_weight(test_graph_ind).unwrap().lock().unwrap(), compare_station);
     }
@@ -230,7 +224,7 @@ mod tests {
 
         let mut fake_id:u32 = 0;
         let compare_test_route = Route::new(&mut 2, String::from("NordStream2f"));
-        let compare_test_route_reverse = Route::new(&mut 2, String::from("NordStream2b"));
+        Route::new(&mut 2, String::from("NordStream2b"));
 
         let test_graph_ind_a = add_station_to_graph(&mut test_graph, &mut fake_id,
                                                     String::from("Berlin"),
@@ -242,14 +236,15 @@ mod tests {
         add_route_to_graph(&mut test_graph, test_graph_ind_a,
                            test_graph_ind_b, &mut fake_id,
                            String::from("NordStream2"), false);
-        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap().name,
-                   String::from("NordStream2f"));
-        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        let read_graph = test_graph.read().unwrap();
+        let forward_edge = read_graph.edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap());
+        assert_eq!(*forward_edge.unwrap().lock().unwrap().name, String::from("NordStream2f"));
+        assert_eq!(*forward_edge.unwrap().lock().unwrap(), compare_test_route);
 
         //check that reverse direction doesn't exist, this should cause a panic.
-        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap().name,
-                   String::from("NordStream2b"));
-        assert_eq!(*(test_graph.read().unwrap().edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_b, test_graph_ind_a).unwrap())).unwrap().lock().unwrap(), compare_test_route);
+        let backward_edge = read_graph.edge_weight(test_graph.read().unwrap().find_edge(test_graph_ind_a, test_graph_ind_b).unwrap());
+        assert_eq!(*backward_edge.unwrap().lock().unwrap().name,String::from("NordStream2b"));
+        assert_eq!(*backward_edge.unwrap().lock().unwrap(), compare_test_route);
 
     }
     #[test]
@@ -268,8 +263,8 @@ mod tests {
                                                   String::from("Paris"),
                                                   vec![(1, TrainType::Freight), (2, TrainType::HighSpeed)]);
 
-        let test_edge_1 = add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"), true);
-        let test_edge_2 = add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"), true);
+        add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"), true);
+        add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"), true);
 
         assert_eq!(true, test_graph.read().unwrap().contains_node(test_station_3));
 
@@ -306,11 +301,11 @@ mod tests {
                                                   String::from("Pontsarn"),
                                                   vec![(3, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
 
-        let test_edge_1 = add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"), false);
-        let test_edge_2 = add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"), false);
-        let test_edge_3 = add_route_to_graph(&mut test_graph, test_station_4, test_station_3, &mut fake_id, String::from("Loilan"), false);
-        let test_edge_4 = add_route_to_graph(&mut test_graph, test_station_3, test_station_5, &mut fake_id, String::from("Loilan"), false);
-        let test_edge_5 = add_route_to_graph(&mut test_graph, test_station_3, test_station_6, &mut fake_id, String::from("Parn"), false);
+        add_route_to_graph(&mut test_graph, test_station_1, test_station_3, &mut fake_id, String::from("waris"), false);
+        add_route_to_graph(&mut test_graph, test_station_3, test_station_2, &mut fake_id, String::from("waris"), false);
+        add_route_to_graph(&mut test_graph, test_station_4, test_station_3, &mut fake_id, String::from("Loilan"), false);
+        add_route_to_graph(&mut test_graph, test_station_3, test_station_5, &mut fake_id, String::from("Loilan"), false);
+        add_route_to_graph(&mut test_graph, test_station_3, test_station_6, &mut fake_id, String::from("Parn"), false);
 
         assert_eq!(true , test_graph.read().unwrap().contains_node(test_station_3));
 
