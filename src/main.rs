@@ -41,9 +41,10 @@ fn main() {
 
     let pool = ThreadPool::new(4);
 
-    for mut train in register.train_list {
+    for train in &register.train_list {
         let arc_graph = Arc::clone(&graph);
-        pool.execute(move|| train.move_forward(&arc_graph));
+        let train_new = Arc::clone(&train);
+        pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
 }

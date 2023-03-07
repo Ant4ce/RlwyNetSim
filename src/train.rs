@@ -24,7 +24,7 @@ pub struct Train {
 pub struct TrainRegister {
     name: String,
     next_train_id: u32,
-    pub train_list: Vec<Train>
+    pub train_list: Vec<Arc<Mutex<Train>>>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -159,7 +159,7 @@ impl TrainRegister {
                      route_name: String, dir_forward: bool, model: String) -> u32 {
         let new_train = Train::new(&mut self.next_train_id, train_type, location,
                                    route_name, dir_forward, model);
-        self.train_list.push(new_train);
+        self.train_list.push(Arc::new(Mutex::new(new_train)));
         self.next_train_id.clone() - 1
     }
 }
@@ -209,19 +209,19 @@ mod tests {
                              String::from("Tokaido_Shinkansen"), true,
                              String::from("Shinkansen"));
         println!("Starting at NodeIndex(0)");
-        test_fleet.train_list[0].move_forward(&test_graph);
-        assert_eq!(test_fleet.train_list[0].location,
+        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph);
+        assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
                    EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
-        for _ in 0..3 { test_fleet.train_list[0].move_forward(&test_graph); }
-        assert_eq!(test_fleet.train_list[0].location,
+        for _ in 0..3 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph); }
+        assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
                    NodeTypeIndex(station3));
         println!("successfully reached endstation, time for a turnaround!");
-        test_fleet.train_list[0].move_forward(&test_graph);
-        assert_eq!(test_fleet.train_list[0].location,
+        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph);
+        assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
                    EdgeTypeIndex(test_graph.read().unwrap().find_edge(station3, station2).unwrap()));
         println!("turnaround backwards worked!");
-        for _ in 1..5 { test_fleet.train_list[0].move_forward(&test_graph); }
-        assert_eq!(test_fleet.train_list[0].location,
+        for _ in 1..5 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph); }
+        assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
                    EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
         println!("turnaround forwards worked, the train go around infinitely");
     }
