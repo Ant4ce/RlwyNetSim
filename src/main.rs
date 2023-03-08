@@ -56,6 +56,8 @@ async fn main() {
 
     let mut graphic_context = GraphicsContext::new();
     let mut my_ui = Ui::new(&mut graphic_context, screen_width(), screen_height());
+    let mut station_name = String::new();
+    let (mut number0, mut number1, mut number2) = (0f32, 0f32, 0f32);
 
     loop {
         clear_background(GRAY);
@@ -63,16 +65,22 @@ async fn main() {
         gui_mq::draw_station(&mut my_ui);
         let my_vec: Option<Vec2> = Some(Vec2::new(0 as f32, 300 as f32));
         let my_string: Cow<'_, str> = Cow::Owned("holllaaaaa".to_string());
-        widgets::Window::new(hash!(), vec2(400., 200.), vec2(320., 400.))
-            .label("comicon")
-            .titlebar(true)
+        widgets::Window::new(hash!(), vec2(470., 50.), vec2(300., 300.))
+            .label("Station Creation")
             .ui(&mut *root_ui(), |ui| {
-            if ui.button(Vec2::new(260., 70.), "weeb") {
-                let (mouse_x, mouse_y) = mouse_position();
-                draw_circle(mouse_x, mouse_y, 500., GREEN);
-            }
-        });
-        let button_return = my_ui.button( my_vec,  UiContent::Label(my_string));
+                ui.tree_node(hash!(), "Input", |ui| {
+                    ui.label(None, "Station name:");
+                    ui.input_text(hash!(), "", &mut station_name);
+                });
+                ui.tree_node(hash!(), "Platforms", |ui| {
+                    ui.label(None, "LowSpeed");
+                    ui.slider(hash!(), "[0..100]", 0f32..10f32, &mut number0);
+                    ui.label(None, "HighSpeed");
+                    ui.slider(hash!(), "[0..100]", 0f32..100f32, &mut number1);
+                    ui.label(None, "Freight");
+                    ui.slider(hash!(), "[0..100]", 0f32..100f32, &mut number2);
+                });
+            });
         next_frame().await;
     }
 }
