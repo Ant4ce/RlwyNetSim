@@ -15,10 +15,11 @@ struct station_coordinates {
 pub fn window_conf() -> Conf {
     Conf {
         window_title: "RlwyNetSim".to_string(),
-        window_height: 500,
-        window_width: 600,
+        window_height: 1500,
+        window_width: 1500,
         fullscreen: false,
         window_resizable: true,
+        high_dpi: true,
         ..Default::default()
     }
 }

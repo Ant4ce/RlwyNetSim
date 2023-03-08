@@ -21,11 +21,38 @@ use std::borrow::Cow;
 use macroquad::ui::UiContent;
 use macroquad::ui::*;
 use macroquad::hash;
+use crate::widgets::Group;
+
+
 use crate::gui_mq::window_conf;
+use crate::train::TrainType::{Freight, HighSpeed, LowSpeed};
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    
+    //
+
+    pub struct Data {
+        inventory: Vec<String>,
+    }
+    impl Data {
+        pub fn new() -> Data {
+            Data {
+                inventory: vec![],
+            }
+        }
+
+        fn inventory(&mut self, ui: &mut Ui) {
+            for (n, item) in self.inventory.iter().enumerate() {
+                let drag = Group::new(hash!("inventory", n), Vec2::new(395., 50.))
+                    .ui(ui, |ui| {
+                        ui.label(Vec2::new(5., 10.), &item);
+                    });
+
+            }
+        }
+
+    }
+    //
     let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
 
@@ -57,29 +84,40 @@ async fn main() {
     let mut graphic_context = GraphicsContext::new();
     let mut my_ui = Ui::new(&mut graphic_context, screen_width(), screen_height());
     let mut station_name = String::new();
+    let mut data = Data::new();
     let (mut number0, mut number1, mut number2) = (0f32, 0f32, 0f32);
 
     loop {
         clear_background(GRAY);
 
-        gui_mq::draw_station(&mut my_ui);
-        let my_vec: Option<Vec2> = Some(Vec2::new(0 as f32, 300 as f32));
-        let my_string: Cow<'_, str> = Cow::Owned("holllaaaaa".to_string());
-        widgets::Window::new(hash!(), vec2(470., 50.), vec2(300., 300.))
+        widgets::Window::new(hash!(), vec2(1200., 50.), vec2(300., 300.))
             .label("Station Creation")
             .ui(&mut *root_ui(), |ui| {
                 ui.tree_node(hash!(), "Input", |ui| {
                     ui.label(None, "Station name:");
                     ui.input_text(hash!(), "", &mut station_name);
                 });
+                // The slider's input value will get rounded down.
                 ui.tree_node(hash!(), "Platforms", |ui| {
                     ui.label(None, "LowSpeed");
-                    ui.slider(hash!(), "[0..100]", 0f32..10f32, &mut number0);
+                    ui.slider(hash!(), "[0..100]", 0f32..100f32, &mut number0);
                     ui.label(None, "HighSpeed");
                     ui.slider(hash!(), "[0..100]", 0f32..100f32, &mut number1);
                     ui.label(None, "Freight");
                     ui.slider(hash!(), "[0..100]", 0f32..100f32, &mut number2);
                 });
+                if ui.button(None, "Create Station")  {
+                    let my_node = add_station_to_graph(&mut graph, &mut station_id_counter, station_name.clone(),
+                                                       vec![(number0 as u8, LowSpeed), (number1 as u8, HighSpeed), (number2 as u8, Freight)]);
+                    data.inventory.push(format!("name: {:?}, NodeIndex: {:?}",
+                                                graph.read().unwrap().node_weight(my_node).unwrap().lock().unwrap().name,
+                                                my_node));
+                };
+            });
+        widgets::Window::new(hash!(), vec2(0., 0.), vec2(400., 700.))
+            .label("My Stations")
+            .ui(&mut *root_ui(), |ui| {
+                data.inventory(ui);
             });
         next_frame().await;
     }
