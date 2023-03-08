@@ -29,36 +29,10 @@ use crate::train::TrainType::{Freight, HighSpeed, LowSpeed};
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    //
 
-    pub struct Data {
-        inventory: Vec<String>,
-    }
-    impl Data {
-        pub fn new() -> Data {
-            Data {
-                inventory: vec![],
-            }
-        }
-
-        fn inventory(&mut self, ui: &mut Ui) {
-            for (n, item) in self.inventory.iter().enumerate() {
-                let drag = Group::new(hash!("inventory", n), Vec2::new(395., 50.))
-                    .ui(ui, |ui| {
-                        ui.label(Vec2::new(5., 10.), &item);
-                    });
-
-            }
-        }
-
-    }
-    //
     let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
 
-    //NEED to USE a DIFFERENT graph type, not GraphMap, is it doesn't allow for mutability in the
-    //node weights.
-    // see petgraph documentation at: https://docs.rs/petgraph/latest/petgraph/graphmap/struct.GraphMap.html  
 
     let mut graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
 
@@ -81,10 +55,8 @@ async fn main() {
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
-    let mut graphic_context = GraphicsContext::new();
-    let mut my_ui = Ui::new(&mut graphic_context, screen_width(), screen_height());
     let mut station_name = String::new();
-    let mut data = Data::new();
+    let mut data = gui_mq::Data::new();
     let (mut number0, mut number1, mut number2) = (0f32, 0f32, 0f32);
 
     loop {
