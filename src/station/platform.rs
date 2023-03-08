@@ -1,5 +1,9 @@
 use crate::train::TrainType;
 
+/// Used by Station
+///
+/// In fact, all interactions with Platform should be done via Station and it's wrappers
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Platform {
     pub id: u8,
     pub occupied: bool,
@@ -13,7 +17,7 @@ impl Platform {
         Platform {
             id,
             occupied: false,
-            platform_type: TrainType::LowSpeed,
+            platform_type: platform_type,
         }
     }
 }
