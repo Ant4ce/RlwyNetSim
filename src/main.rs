@@ -16,6 +16,11 @@ use crate::graph::*;
 use crate::threadpool::ThreadPool;
 
 use macroquad::prelude::*;
+use crate::miniquad::GraphicsContext;
+use std::borrow::Cow;
+use macroquad::ui::UiContent;
+use macroquad::ui::*;
+use macroquad::hash;
 use crate::gui_mq::window_conf;
 
 #[macroquad::main(window_conf)]
@@ -49,18 +54,25 @@ async fn main() {
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
+    let mut graphic_context = GraphicsContext::new();
+    let mut my_ui = Ui::new(&mut graphic_context, screen_width(), screen_height());
+
     loop {
         clear_background(GRAY);
-        draw_circle(screen_width()/2.,screen_height()/2., 50., RED);
-        let circle = Circle::new(screen_width()/2.,screen_height()/2., 50.);
-        if is_mouse_button_pressed(MouseButton::Left) {
-            let (mouse_x,mouse_y) = mouse_position();
-            let mouse_circ = Circle::new(mouse_x,mouse_y,1.);
 
-            if mouse_circ.overlaps(&circle) {
-                draw_circle(screen_width()/2.,screen_height()/2., 200., BLUE);
+        gui_mq::draw_station(&mut my_ui);
+        let my_vec: Option<Vec2> = Some(Vec2::new(0 as f32, 300 as f32));
+        let my_string: Cow<'_, str> = Cow::Owned("holllaaaaa".to_string());
+        widgets::Window::new(hash!(), vec2(400., 200.), vec2(320., 400.))
+            .label("comicon")
+            .titlebar(true)
+            .ui(&mut *root_ui(), |ui| {
+            if ui.button(Vec2::new(260., 70.), "weeb") {
+                let (mouse_x, mouse_y) = mouse_position();
+                draw_circle(mouse_x, mouse_y, 500., GREEN);
             }
-        }
+        });
+        let button_return = my_ui.button( my_vec,  UiContent::Label(my_string));
         next_frame().await;
     }
 }
