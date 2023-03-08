@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use petgraph::visit::EdgeRef;
@@ -142,6 +143,11 @@ fn compare_route_names(name_in_graph: &String,
     if name_in_graph == route_name_forward_direction ||
         name_in_graph == route_name_back_direction { true }
     else { false }
+}
+impl Display for TrainType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl TrainRegister {

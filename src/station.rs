@@ -1,6 +1,6 @@
-mod platform; 
+mod platform;
 
-
+use std::fmt::{Display, Formatter};
 use crate::train::TrainType;
 
 /// Station Struct
@@ -17,6 +17,11 @@ pub enum PlatformError {
         Booking,
 }
 
+impl Display for Station {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: {:?}, with {:?} Platforms", self.id, self.name, self.platforms.len())
+    }
+}
 
 impl Station {
     /// Creates new Station
@@ -122,7 +127,7 @@ impl Station {
 
 #[cfg(test)]
 mod tests {
-    
+    use macroquad::logging::warn;
     use super::*;
     
     //Tests run on the generation of platforms.
