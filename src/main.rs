@@ -15,12 +15,15 @@ use petgraph::stable_graph::StableGraph;
 use crate::graph::*;
 use crate::threadpool::ThreadPool;
 
-use std::borrow::Cow;
+use crate::gui::*;
+use crate::gui::StationUI;
+use eframe::egui;
 
+use crate::gui::TemplateWindow;
 
 use crate::train::TrainType::{Freight, HighSpeed, LowSpeed};
 
-fn main() {
+fn main()  -> Result<(), eframe::Error> {
 
     let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
@@ -47,5 +50,16 @@ fn main() {
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
+    // GUI
+    let options = eframe::NativeOptions {
+        min_window_size: Some(egui::vec2(800.0, 200.0)),
+        initial_window_size: Some(egui::vec2(800.0, 400.0)),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Railways BABBYYY", // unused title
+        options,
+        Box::new(|cc| Box::new(TemplateWindow::new(cc))),
+    )
 
 }
