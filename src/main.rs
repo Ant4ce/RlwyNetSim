@@ -52,10 +52,11 @@ fn main()  -> Result<(), eframe::Error> {
 
     // GUI
     let options = eframe::NativeOptions {
-        min_window_size: Some(egui::vec2(800.0, 200.0)),
-        initial_window_size: Some(egui::vec2(800.0, 400.0)),
+        min_window_size: Some(egui::vec2(1200.0, 200.0)),
+        initial_window_size: Some(egui::vec2(1200.0, 400.0)),
         ..Default::default()
     };
+
     eframe::run_native(
         "Railways BABBYYY", // unused title
         options,
