@@ -1,177 +1,155 @@
-use std::borrow::Cow;
 use std::fmt::{Debug, Display, format, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
-use petgraph::stable_graph::NodeIndex;
+use petgraph::stable_graph::{NodeIndex, EdgeIndex};
+use bevy_egui::{egui, EguiContexts};
+use bevy::prelude::*;
 use petgraph::prelude::StableGraph;
-use crate::graph::*;
+use crate::graph::add_station_to_graph;
 use crate::route::Route;
 use crate::station::Station;
-use crate::train::TrainType::*;
+use crate::train::TrainType::{Freight, LowSpeed, HighSpeed};
 
-use egui::*;
+#[derive(Component)]
+struct DefaultStation;
 
-struct StationCoordinates {
-    node_index: NodeIndex,
-    x: f32,
-    y: f32,
+#[derive(Component)]
+struct DefaultRoute;
+
+#[derive(Component)]
+struct StationUI(NodeIndex);
+
+#[derive(Component)]
+struct RouteUI(EdgeIndex);
+
+#[derive(Component)]
+struct Name(String);
+
+#[derive(Component)]
+struct Position(f32, f32);
+
+#[derive(Component)]
+struct Endpoints(Position, Position);
+
+#[derive(Component)]
+struct PlatformFreight(u8);
+
+#[derive(Component)]
+struct PlatformHighS(u8);
+
+#[derive(Component)]
+struct PlatformLowS(u8);
+
+fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
+                  pf_f: PlatformFreight, pf_h: PlatformHighS, pf_l: PlatformLowS,
+                  graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
+                  id: &mut u32) {
+    let id = add_station_to_graph(graph, id, name.0.clone(),
+                          vec![(pf_f.0, Freight), (pf_h.0, HighSpeed), (pf_l.0, LowSpeed)]);
+    commands.spawn((name, pos, pf_f, pf_h, pf_l));
 }
-// EGUI / EFRAME
 
-pub struct TemplateWindow {
-    label: String,
-    stations: Vec<StationUI>,
-    current_station: StationUI,
-}
-impl Default for TemplateWindow {
-    fn default() -> Self {
-       Self {
-           label: "RlwyNetSim".to_owned(),
-           stations: vec![],
-           current_station: StationUI::default(),
-       }
-    }
-}
-impl TemplateWindow {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        Default::default()
-    }
-}
-impl eframe::App for TemplateWindow {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, stations, current_station} = self;
+pub fn central_ui(mut ctx: EguiContexts, mut command: Commands, stations: Query<&Name, With<StationUI>>) {
+    // Examples of how to create different panels and windows.
+    // Pick whichever suits you.
+    // Tip: a good default choice is to just keep the `CentralPanel`.
+    // For inspiration and more examples, go to https://emilk.github.io/egui
+    let mut current_station: StationUI = StationUI::default();
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-                ui.menu_button("Station Creator", |ui| {
-                    if ui.button("Make Station").clicked() {
-                        stations.push(StationUI::default());
-                    }
-                });
+    #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+    egui::TopBottomPanel::top("top_panel").show(ctx.ctx_mut(), |ui| {
+        // The top panel is often a good place for a menu bar:
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
             });
         });
+    });
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
+    egui::SidePanel::left("side_panel").show(ctx.ctx_mut(), |ui| {
+        ui.heading("Side Panel");
 
-            egui::ScrollArea::vertical().max_width(f32::INFINITY).auto_shrink([false;2]).show(ui, |ui| {
-                for stat in stations.clone() {
-                    ui.label(format!("{}", stat));
-                }
-            });
-
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
-            if stations.len() < 1 {
-                stations.push(StationUI::default());
+        egui::ScrollArea::vertical().max_width(f32::INFINITY).auto_shrink([false;2])
+            .show(ui, |ui| {
+            for stat in &stations {
+                ui.label(format!("{:?}", stat.0));
             }
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            ui.label(format!("Your latest Station name: {}, the total  number of station: {}",
-                             &stations.last().unwrap().name, stations.len()));
-            egui::Window::new("Station Creation").show(ctx, |ui| {
-                let bool_result = current_station.make_station(ui);
-                if bool_result {
-                    stations.push(current_station.clone());
-                }
-                //match the_station {
-                //    Some(x) => stations.push(x.clone()),
-                //    None => (),
-                //}
-            });
-            egui::warn_if_debug_build(ui);
         });
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.label("powered by ");
+                ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+                ui.label(" and ");
+                ui.hyperlink_to(
+                    "eframe",
+                    "https://github.com/emilk/egui/tree/master/crates/eframe",
+                );
+                ui.label(".");
             });
-        }
-    }
-}
-#[derive(PartialEq, Clone, Debug)]
-pub struct StationUI {
-    name: String,
-    n_freight: u32,
-    n_lowspeed: u32,
-    n_highspeed: u32,
-}
-impl Default for StationUI {
-    fn default() -> Self {
-        Self {
-            name: "Berlin".to_owned(),
-            n_freight: 5,
-            n_lowspeed: 5,
-            n_highspeed: 5,
-        }
-    }
-}
-impl Display for StationUI {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}" ,self.name)
-    }
-}
-impl StationUI {
-    pub fn new(name: String, n_f: u32, n_l: u32, n_h: u32) -> StationUI {
-        StationUI {
-            name: name,
-            n_freight: n_f,
-            n_lowspeed: n_l,
-            n_highspeed: n_h,
-        }
-    }
-    pub fn make_station(&mut self, ui: &mut egui::Ui) -> bool {
-        ui.heading("Create Station");
-
-        ui.horizontal(|ui| {
-            ui.label("Station Name: ");
-            ui.text_edit_singleline(&mut self.name);
         });
-        ui.label("Number of Platforms");
-        ui.add(egui::Slider::new(&mut self.n_freight, 0..=100).text("Freight Platforms"));
-        ui.add(egui::Slider::new(&mut self.n_lowspeed, 0..=100).text("LowSpeed Platforms"));
-        ui.add(egui::Slider::new(&mut self.n_highspeed, 0..=100).text("HighSpeed Platforms"));
-        ui.label(format!("Your Station: Name '{}', # of platforms: {}", self.name, self.n_highspeed + self.n_lowspeed + self.n_freight));
-        if ui.add(egui::Button::new("Create!")).clicked() {
-            return true;
-        }
-        return false;
+    });
 
-    }
+    egui::CentralPanel::default().show(ctx.ctx_mut(), |ui| {
+        // The central panel the region left after adding TopPanel's and SidePanel's
+
+        ui.heading("eframe template");
+        ui.hyperlink("https://github.com/emilk/eframe_template");
+        ui.add(egui::github_link_file!(
+            "https://github.com/emilk/eframe_template/blob/master/",
+            "Source code."
+        ));
+        egui::warn_if_debug_build(ui);
+    });
+    egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
+        let bool_result = make_station(ui);
+        if bool_result {
+            command.spawn((Station))
+        }
+    });
 }
 
+//#[derive(PartialEq, Clone, Debug)]
+//pub struct StationUI {
+//    name: String,
+//    n_freight: u32,
+//    n_lowspeed: u32,
+//    n_highspeed: u32,
+//}
+//impl Default for StationUI {
+//    fn default() -> Self {
+//        Self {
+//            name: "Berlin".to_owned(),
+//            n_freight: 5,
+//            n_lowspeed: 5,
+//            n_highspeed: 5,
+//        }
+//    }
+//}
+pub fn make_station(query_name: Query<&Name, With<DefaultStation>>, query_pf_f: Query<&PlatformFreight, With<DefaultStation>>,
+                    query_pf_l: Query<&PlatformLowS, With<DefaultStation>>, query_pf_h: Query<&PlatformHighS, With<DefaultStation>>,
+                    ui: &mut egui::Ui) -> bool {
+    ui.heading("Create Station");
+
+    ui.horizontal(|ui| {
+        ui.label("Station Name: ");
+        ui.text_edit_singleline(&mut query_name);
+    });
+    ui.label("Number of Platforms");
+    ui.add(egui::Slider::new(&mut query_pf_f, 0..=100).text("Freight Platforms"));
+    ui.add(egui::Slider::new(&mut query_pf_l, 0..=100).text("LowSpeed Platforms"));
+    ui.add(egui::Slider::new(&mut query_pf_h, 0..=100).text("HighSpeed Platforms"));
+    ui.label(format!("Your Station: Name '{}', # of platforms: {}", query_name,
+                     query_pf_h.0 + query_pf_l.0+ query_pf_f.0));
+    if ui.add(egui::Button::new("Create!")).clicked() {
+        return true;
+    }
+    return false;
+
+}
+
+
+pub fn ui_default_values(mut commands: Commands) {
+    commands.spawn((DefaultStation, Name(String::from("Berlin")),
+                    PlatformFreight(0), PlatformLowS(0), PlatformHighS(0)));
+}

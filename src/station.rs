@@ -127,7 +127,6 @@ impl Station {
 
 #[cfg(test)]
 mod tests {
-    use macroquad::logging::warn;
     use super::*;
     
     //Tests run on the generation of platforms.

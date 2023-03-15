@@ -6,6 +6,8 @@ pub mod graph;
 pub mod gui;
 
 use std::sync::{Arc, Mutex, RwLock};
+use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use crate::train::{TrainRegister, TrainType};
 use crate::station::Station;
 use crate::train::{Location};
@@ -16,14 +18,11 @@ use crate::graph::*;
 use crate::threadpool::ThreadPool;
 
 use crate::gui::*;
-use crate::gui::StationUI;
-use eframe::egui;
 
-use crate::gui::TemplateWindow;
 
 use crate::train::TrainType::{Freight, HighSpeed, LowSpeed};
 
-fn main()  -> Result<(), eframe::Error> {
+fn main() /* -> Result<(), eframe::Error>*/ {
 
     let mut station_id_counter: u32 = 0;
     let mut route_id_counter: u32 = 0; 
@@ -57,10 +56,17 @@ fn main()  -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    eframe::run_native(
-        "Railways BABBYYY", // unused title
-        options,
-        Box::new(|cc| Box::new(TemplateWindow::new(cc))),
-    )
+    //eframe::run_native(
+    //    "Railways BABBYYY", // unused title
+    //    options,
+    //    Box::new(|cc| Box::new(TemplateWindow::new(cc))),
+    //)
 
+    let template_win = TemplateWindow::default();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugin(EguiPlugin)
+        .add_startup_system(ui_default_values)
+        .add_system(central_ui)
+        .run();
 }
