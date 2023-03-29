@@ -16,13 +16,13 @@ struct DefaultStation;
 struct DefaultRoute;
 
 #[derive(Component)]
-struct StationUI(NodeIndex);
+pub struct StationUI(NodeIndex);
 
 #[derive(Component)]
 struct RouteUI(EdgeIndex);
 
 #[derive(Component)]
-struct Name(String);
+pub struct Name(String);
 
 #[derive(Component)]
 struct Position(f32, f32);
@@ -39,21 +39,27 @@ struct PlatformHighS(u8);
 #[derive(Component)]
 struct PlatformLowS(u8);
 
-fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
-                  pf_f: PlatformFreight, pf_h: PlatformHighS, pf_l: PlatformLowS,
-                  graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
-                  id: &mut u32) {
-    let id = add_station_to_graph(graph, id, name.0.clone(),
-                          vec![(pf_f.0, Freight), (pf_h.0, HighSpeed), (pf_l.0, LowSpeed)]);
-    commands.spawn((name, pos, pf_f, pf_h, pf_l));
+#[derive(Default)]
+pub struct EguiState {
+    plat_name: String,
+    plat_LowS: u8,
+    plat_HighS: u8,
+    plat_Freight: u8,
 }
 
-pub fn central_ui(mut ctx: EguiContexts, mut command: Commands, stations: Query<&Name, With<StationUI>>) {
-    // Examples of how to create different panels and windows.
-    // Pick whichever suits you.
-    // Tip: a good default choice is to just keep the `CentralPanel`.
-    // For inspiration and more examples, go to https://emilk.github.io/egui
-    let mut current_station: StationUI = StationUI::default();
+//fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
+//                  pf_f: PlatformFreight, pf_h: PlatformHighS, pf_l: PlatformLowS,
+//                  graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
+//                  id: &mut u32) {
+//    let id = add_station_to_graph(graph, id, name.0.clone(),
+//                          vec![(pf_f.0, Freight), (pf_h.0, HighSpeed), (pf_l.0, LowSpeed)]);
+//    commands.spawn((name, pos, pf_f, pf_h, pf_l));
+//}
+
+pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
+                  stations: Query<&Name>, mut egui_params: Local<EguiState>) {
+
+    //let mut current_station: StationUI = StationUI::default();
 
     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
     egui::TopBottomPanel::top("top_panel").show(ctx.ctx_mut(), |ui| {
@@ -102,49 +108,33 @@ pub fn central_ui(mut ctx: EguiContexts, mut command: Commands, stations: Query<
         egui::warn_if_debug_build(ui);
     });
     egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
-        let bool_result = make_station(ui);
-        if bool_result {
-            command.spawn((Station))
-        }
+        make_station(ui, &mut egui_params, commands);
+
+        //if bool_result {
+        //    commands.spawn(Name(egui_params.plat_name.clone()))
+        //}
     });
 }
 
-//#[derive(PartialEq, Clone, Debug)]
-//pub struct StationUI {
-//    name: String,
-//    n_freight: u32,
-//    n_lowspeed: u32,
-//    n_highspeed: u32,
-//}
-//impl Default for StationUI {
-//    fn default() -> Self {
-//        Self {
-//            name: "Berlin".to_owned(),
-//            n_freight: 5,
-//            n_lowspeed: 5,
-//            n_highspeed: 5,
-//        }
-//    }
-//}
-pub fn make_station(query_name: Query<&Name, With<DefaultStation>>, query_pf_f: Query<&PlatformFreight, With<DefaultStation>>,
-                    query_pf_l: Query<&PlatformLowS, With<DefaultStation>>, query_pf_h: Query<&PlatformHighS, With<DefaultStation>>,
-                    ui: &mut egui::Ui) -> bool {
+
+pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut commands: Commands) {
     ui.heading("Create Station");
 
     ui.horizontal(|ui| {
         ui.label("Station Name: ");
-        ui.text_edit_singleline(&mut query_name);
+        ui.text_edit_singleline(&mut egui_params.plat_name);
     });
     ui.label("Number of Platforms");
-    ui.add(egui::Slider::new(&mut query_pf_f, 0..=100).text("Freight Platforms"));
-    ui.add(egui::Slider::new(&mut query_pf_l, 0..=100).text("LowSpeed Platforms"));
-    ui.add(egui::Slider::new(&mut query_pf_h, 0..=100).text("HighSpeed Platforms"));
-    ui.label(format!("Your Station: Name '{}', # of platforms: {}", query_name,
-                     query_pf_h.0 + query_pf_l.0+ query_pf_f.0));
+    ui.add(egui::Slider::new(&mut egui_params.plat_Freight, 0..=100).text("Freight Platforms"));
+    ui.add(egui::Slider::new(&mut egui_params.plat_LowS, 0..=100).text("LowSpeed Platforms"));
+    ui.add(egui::Slider::new(&mut egui_params.plat_HighS, 0..=100).text("HighSpeed Platforms"));
+    ui.label(format!("Your Station: Name '{}', # of platforms: {}", egui_params.plat_name,
+                     egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
     if ui.add(egui::Button::new("Create!")).clicked() {
-        return true;
+        commands.spawn(Name(egui_params.plat_name.clone()));
     }
-    return false;
+
+    //return false;
 
 }
 
