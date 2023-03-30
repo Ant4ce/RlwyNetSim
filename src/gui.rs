@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use bevy_egui::{egui, EguiContexts};
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use petgraph::prelude::StableGraph;
 use crate::graph::add_station_to_graph;
 use crate::route::Route;
@@ -16,7 +17,7 @@ struct DefaultStation;
 struct DefaultRoute;
 
 #[derive(Component)]
-pub struct StationUI(NodeIndex);
+pub struct StationUI;
 
 #[derive(Component)]
 struct RouteUI(EdgeIndex);
@@ -100,17 +101,6 @@ pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
         });
     });
 
-    egui::CentralPanel::default().show(ctx.ctx_mut(), |ui| {
-        // The central panel the region left after adding TopPanel's and SidePanel's
-
-        ui.heading("eframe template");
-        ui.hyperlink("https://github.com/emilk/eframe_template");
-        ui.add(egui::github_link_file!(
-            "https://github.com/emilk/eframe_template/blob/master/",
-            "Source code."
-        ));
-        egui::warn_if_debug_build(ui);
-    });
     egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
         make_station(ui, &mut egui_params, commands);
     });
@@ -132,12 +122,34 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut c
                      egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
     if ui.add(egui::Button::new("Create!")).clicked() {
         commands.spawn(Name(egui_params.plat_name.clone()));
-        //ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
         egui_params.hand_cursor = true;
     }
+}
 
-    //return false;
+pub fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
+    let window = window_query.get_single().unwrap();
 
+    commands.spawn(Camera2dBundle {
+       transform: Transform::from_xyz(window.width()/ 2.0, window.height() /2.0, 0.0),
+        ..default()
+    });
+}
+
+pub fn ui_spawn_station(
+    mut commands: Commands,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>
+) {
+    let window = window_query.get_single().unwrap();
+
+    commands.spawn(
+        (SpriteBundle {
+            transform: Transform::from_xyz(window.width() / 2.0, window.height() /2.0, 0.0),
+            texture: asset_server.load("sprites/planets/planet00.png"),
+            ..default()
+    },
+        StationUI,
+    ));
 }
 
 
