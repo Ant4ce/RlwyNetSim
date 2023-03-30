@@ -66,7 +66,7 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
-        .add_startup_system(ui_default_values)
+        //.add_startup_system(ui_default_values)
         .add_system(central_ui)
         .run();
 }

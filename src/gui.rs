@@ -45,6 +45,7 @@ pub struct EguiState {
     plat_LowS: u8,
     plat_HighS: u8,
     plat_Freight: u8,
+    hand_cursor: bool,
 }
 
 //fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
@@ -59,7 +60,10 @@ pub struct EguiState {
 pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
                   stations: Query<&Name>, mut egui_params: Local<EguiState>) {
 
-    //let mut current_station: StationUI = StationUI::default();
+    // Set
+    if egui_params.hand_cursor {
+        ctx.ctx_mut().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
 
     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
     egui::TopBottomPanel::top("top_panel").show(ctx.ctx_mut(), |ui| {
@@ -109,10 +113,6 @@ pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
     });
     egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
         make_station(ui, &mut egui_params, commands);
-
-        //if bool_result {
-        //    commands.spawn(Name(egui_params.plat_name.clone()))
-        //}
     });
 }
 
@@ -132,6 +132,8 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut c
                      egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
     if ui.add(egui::Button::new("Create!")).clicked() {
         commands.spawn(Name(egui_params.plat_name.clone()));
+        //ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        egui_params.hand_cursor = true;
     }
 
     //return false;
@@ -139,7 +141,7 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut c
 }
 
 
-pub fn ui_default_values(mut commands: Commands) {
-    commands.spawn((DefaultStation, Name(String::from("Berlin")),
-                    PlatformFreight(0), PlatformLowS(0), PlatformHighS(0)));
-}
+//pub fn ui_default_values(mut commands: Commands) {
+//    commands.spawn((DefaultStation, Name(String::from("Berlin")),
+//                    PlatformFreight(0), PlatformLowS(0), PlatformHighS(0)));
+//}
