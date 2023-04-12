@@ -4,6 +4,7 @@ use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use bevy_egui::{egui, EguiContexts};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy::math::f32::Vec3;
 use petgraph::prelude::StableGraph;
 use crate::graph::add_station_to_graph;
 use crate::route::Route;
@@ -135,21 +136,69 @@ pub fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Pr
     });
 }
 
+pub const CAMERA_SPEED: f32 = 300.0;
+
+pub fn move_camera(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut camera_2d: Query<&mut Transform, With<Camera>>,
+    time: Res<Time>,
+) {
+
+    let mut my_camera = camera_2d.single_mut();
+    let mut direction = Vec3::ZERO;
+    if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
+        direction += Vec3::new(-1.0, 0.0 , 0.0);
+    }
+    if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
+        direction += Vec3::new(1.0, 0.0, 0.0 );
+    }
+    if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+        direction += Vec3::new(0.0, 1.0, 0.0 );
+    }
+    if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+        direction += Vec3::new(0.0, -1.0, 0.0 );
+    }
+
+    if direction.length() > 0.0 {
+        direction = direction.normalize();
+    }
+    my_camera.translation += direction * CAMERA_SPEED * time.delta_seconds();
+
+}
 pub fn ui_spawn_station(
     mut commands: Commands,
     window_query: Query<&Window, With<PrimaryWindow>>,
     asset_server: Res<AssetServer>
 ) {
+    // to pass to the SpriteBundle to indicate the location.
     let window = window_query.get_single().unwrap();
-
+    //Changes the sprite size.
+    let my_sprite = Sprite{
+        custom_size: Some(Vec2{x: 50.0, y: 50.0}),
+        ..default()
+    };
     commands.spawn(
         (SpriteBundle {
             transform: Transform::from_xyz(window.width() / 2.0, window.height() /2.0, 0.0),
+            sprite: my_sprite,
             texture: asset_server.load("sprites/planets/planet00.png"),
             ..default()
     },
         StationUI,
     ));
+    let second_sprite = Sprite{
+        custom_size: Some(Vec2{x: 50.0, y: 50.0}),
+        ..default()
+    };
+    commands.spawn(
+        (SpriteBundle {
+            transform: Transform::from_xyz(window.width() / 2.0, window.height() /2.0 + 100.0, 0.0),
+            sprite: second_sprite,
+            texture: asset_server.load("sprites/planets/planet01.png"),
+            ..default()
+        },
+         StationUI,
+        ));
 }
 
 

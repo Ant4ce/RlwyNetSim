@@ -70,5 +70,6 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         .add_startup_system(ui_spawn_station)
         //.add_startup_system(ui_default_values)
         .add_system(central_ui)
+        .add_system(move_camera)
         .run();
 }
