@@ -5,6 +5,7 @@ use bevy_egui::{egui, EguiContexts};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::math::f32::Vec3;
+use bevy::render::camera::RenderTarget;
 use petgraph::prelude::StableGraph;
 use crate::graph::add_station_to_graph;
 use crate::route::Route;
@@ -47,7 +48,18 @@ pub struct EguiState {
     plat_LowS: u8,
     plat_HighS: u8,
     plat_Freight: u8,
+}
+
+#[derive(Resource)]
+pub struct MyResources {
+    text_field_clicked: bool,
     hand_cursor: bool,
+    cursor_world_coordinates: Vec2,
+}
+// This adds our Resources to our World component. Resources are pieces of data that
+// can be shared by multiple different parts of the bevy code.
+pub fn instantiate_resources(mut commands: Commands) {
+    commands.insert_resource(MyResources{text_field_clicked: false, hand_cursor: false, cursor_world_coordinates: Vec2::ZERO});
 }
 
 //fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
@@ -60,10 +72,11 @@ pub struct EguiState {
 //}
 
 pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
-                  stations: Query<&Name>, mut egui_params: Local<EguiState>) {
+                  stations: Query<&Name>, mut egui_params: Local<EguiState>,
+                  mut resource: ResMut<MyResources>) {
 
-    // Set
-    if egui_params.hand_cursor {
+    // Set cursor type
+    if resource.hand_cursor {
         ctx.ctx_mut().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
 
@@ -103,17 +116,23 @@ pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
     });
 
     egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
-        make_station(ui, &mut egui_params, commands);
+        make_station(ui, &mut egui_params, commands, resource);
     });
 }
 
 
-pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut commands: Commands) {
+pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
+                    mut commands: Commands, mut resource: ResMut<MyResources>) {
     ui.heading("Create Station");
 
     ui.horizontal(|ui| {
         ui.label("Station Name: ");
-        ui.text_edit_singleline(&mut egui_params.plat_name);
+        let a_response = ui.text_edit_singleline(&mut egui_params.plat_name);
+        if a_response.clicked() {
+            resource.text_field_clicked = true;
+        } else if a_response.clicked_elsewhere() {
+            resource.text_field_clicked = false;
+        }
     });
     ui.label("Number of Platforms");
     ui.add(egui::Slider::new(&mut egui_params.plat_Freight, 0..=100).text("Freight Platforms"));
@@ -123,7 +142,7 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>, mut c
                      egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
     if ui.add(egui::Button::new("Create!")).clicked() {
         commands.spawn(Name(egui_params.plat_name.clone()));
-        egui_params.hand_cursor = true;
+        resource.hand_cursor = true;
     }
 }
 
@@ -136,69 +155,86 @@ pub fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Pr
     });
 }
 
+// Gets the position of the cursor and converts it into the world coordinates.
+// These world coordinates can be used to spawn objects based on cursor position
+// and are saved in resources.
+pub fn cursor_location_in_world(
+    window_query: Query<&Window>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
+    mut resource: ResMut<MyResources>)
+{
+    let (camera, camera_transform) = query_camera.single();
+    let window = window_query.single();
+
+    if let Some(world_position) = window.cursor_position().and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor)) {
+        //println!("world coordinates: {} , {}", world_position.x, world_position.y);
+        resource.cursor_world_coordinates = world_position;
+    }
+
+}
+
 pub const CAMERA_SPEED: f32 = 300.0;
 
 pub fn move_camera(
     keyboard_input: Res<Input<KeyCode>>,
     mut camera_2d: Query<&mut Transform, With<Camera>>,
     time: Res<Time>,
+    resource: Res<MyResources>,
 ) {
+    if resource.text_field_clicked == false {
+        let mut my_camera = camera_2d.single_mut();
+        let mut direction = Vec3::ZERO;
+        if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
+            direction += Vec3::new(-1.0, 0.0 , 0.0);
+        }
+        if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
+            direction += Vec3::new(1.0, 0.0, 0.0 );
+        }
+        if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+            direction += Vec3::new(0.0, 1.0, 0.0 );
+        }
+        if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+            direction += Vec3::new(0.0, -1.0, 0.0 );
+        }
 
-    let mut my_camera = camera_2d.single_mut();
-    let mut direction = Vec3::ZERO;
-    if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
-        direction += Vec3::new(-1.0, 0.0 , 0.0);
+        if direction.length() > 0.0 {
+            direction = direction.normalize();
+        }
+        my_camera.translation += direction * CAMERA_SPEED * time.delta_seconds();
     }
-    if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
-        direction += Vec3::new(1.0, 0.0, 0.0 );
-    }
-    if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-        direction += Vec3::new(0.0, 1.0, 0.0 );
-    }
-    if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-        direction += Vec3::new(0.0, -1.0, 0.0 );
-    }
-
-    if direction.length() > 0.0 {
-        direction = direction.normalize();
-    }
-    my_camera.translation += direction * CAMERA_SPEED * time.delta_seconds();
 
 }
+
+
 pub fn ui_spawn_station(
     mut commands: Commands,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    asset_server: Res<AssetServer>
+    mut ctx: EguiContexts,
+    asset_server: Res<AssetServer>,
+    mut resource: ResMut<MyResources>,
+    buttons: Res<Input<MouseButton>>
 ) {
-    // to pass to the SpriteBundle to indicate the location.
-    let window = window_query.get_single().unwrap();
-    //Changes the sprite size.
-    let my_sprite = Sprite{
-        custom_size: Some(Vec2{x: 50.0, y: 50.0}),
-        ..default()
-    };
-    commands.spawn(
-        (SpriteBundle {
-            transform: Transform::from_xyz(window.width() / 2.0, window.height() /2.0, 0.0),
-            sprite: my_sprite,
-            texture: asset_server.load("sprites/planets/planet00.png"),
-            ..default()
-    },
-        StationUI,
-    ));
-    let second_sprite = Sprite{
-        custom_size: Some(Vec2{x: 50.0, y: 50.0}),
-        ..default()
-    };
-    commands.spawn(
-        (SpriteBundle {
-            transform: Transform::from_xyz(window.width() / 2.0, window.height() /2.0 + 100.0, 0.0),
-            sprite: second_sprite,
-            texture: asset_server.load("sprites/planets/planet01.png"),
-            ..default()
-        },
-         StationUI,
-        ));
+    if resource.hand_cursor == true {
+        if buttons.just_pressed(MouseButton::Left) {
+            //Changes the sprite size.
+            let my_sprite = Sprite{
+                custom_size: Some(Vec2{x: 50.0, y: 50.0}),
+                ..default()
+            };
+            commands.spawn(
+                (SpriteBundle {
+                    transform: Transform::from_xyz(resource.cursor_world_coordinates.x.clone(),
+                                                   resource.cursor_world_coordinates.y.clone(),
+                                                   0.0),
+                    sprite: my_sprite,
+                    texture: asset_server.load("sprites/planets/planet00.png"),
+                    ..default()
+                },
+                 StationUI,
+                ));
+            ctx.ctx_mut().set_cursor_icon(egui::CursorIcon::Default);
+            resource.hand_cursor = false;
+        }
+    }
 }
 
 

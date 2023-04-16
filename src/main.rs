@@ -67,9 +67,12 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .add_startup_system(spawn_camera)
-        .add_startup_system(ui_spawn_station)
+        // should not be startup system: .add_startup_system(ui_spawn_station)
+        .add_startup_system(instantiate_resources)
         //.add_startup_system(ui_default_values)
         .add_system(central_ui)
         .add_system(move_camera)
+        .add_system(cursor_location_in_world)
+        .add_system(ui_spawn_station)
         .run();
 }
