@@ -49,27 +49,11 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
 
-    // GUI
-
-    //let options = eframe::NativeOptions {
-    //    min_window_size: Some(egui::vec2(1200.0, 200.0)),
-    //    initial_window_size: Some(egui::vec2(1200.0, 400.0)),
-    //    ..Default::default()
-    //};
-    //eframe::run_native(
-    //    "Railways BABBYYY", // unused title
-    //    options,
-    //    Box::new(|cc| Box::new(TemplateWindow::new(cc))),
-    //)
-
-    //let template_win = TemplateWindow::default();
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .add_startup_system(spawn_camera)
-        // should not be startup system: .add_startup_system(ui_spawn_station)
         .add_startup_system(instantiate_resources)
-        //.add_startup_system(ui_default_values)
         .add_system(central_ui)
         .add_system(move_camera)
         .add_system(cursor_location_in_world)

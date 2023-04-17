@@ -1,12 +1,11 @@
 use std::fmt::{Debug, Display, format, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
-use petgraph::stable_graph::{NodeIndex, EdgeIndex};
+use petgraph::stable_graph::{StableGraph, NodeIndex, EdgeIndex};
 use bevy_egui::{egui, EguiContexts};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::math::f32::Vec3;
 use bevy::render::camera::RenderTarget;
-use petgraph::prelude::StableGraph;
 use crate::graph::add_station_to_graph;
 use crate::route::Route;
 use crate::station::Station;
@@ -236,9 +235,3 @@ pub fn ui_spawn_station(
         }
     }
 }
-
-
-//pub fn ui_default_values(mut commands: Commands) {
-//    commands.spawn((DefaultStation, Name(String::from("Berlin")),
-//                    PlatformFreight(0), PlatformLowS(0), PlatformHighS(0)));
-//}
