@@ -1,15 +1,17 @@
 use std::fmt::{Debug, Display, format, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
+use bevy::ecs::query::WorldQuery;
 use petgraph::stable_graph::{StableGraph, NodeIndex, EdgeIndex};
 use bevy_egui::{egui, EguiContexts};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::math::f32::Vec3;
 use bevy::render::camera::RenderTarget;
-use crate::graph::add_station_to_graph;
+use petgraph::graph::node_index;
+use crate::graph::Graph;
 use crate::route::Route;
 use crate::station::Station;
-use crate::train::TrainType::{Freight, LowSpeed, HighSpeed};
+use crate::train::TrainType::{LowSpeed, HighSpeed, Freight};
 
 #[derive(Component)]
 struct DefaultStation;
@@ -18,13 +20,19 @@ struct DefaultStation;
 struct DefaultRoute;
 
 #[derive(Component)]
-pub struct StationUI;
+pub struct UnderConstruction;
 
 #[derive(Component)]
 struct RouteUI(EdgeIndex);
 
 #[derive(Component)]
 pub struct Name(String);
+
+#[derive(Component)]
+pub struct StationIndex(NodeIndex);
+
+#[derive(Component)]
+pub struct StationComponent;
 
 #[derive(Component)]
 struct Position(f32, f32);
@@ -41,6 +49,23 @@ struct PlatformHighS(u8);
 #[derive(Component)]
 struct PlatformLowS(u8);
 
+#[derive(Component)]
+pub struct Platforms {
+    low_speed: PlatformLowS,
+    high_speed: PlatformHighS,
+    freight: PlatformFreight
+}
+
+#[derive(Bundle)]
+pub struct StationBundle{
+    name: Name,
+
+    #[bundle]
+    platforms: Platforms,
+
+    station: StationComponent
+}
+
 #[derive(Default)]
 pub struct EguiState {
     plat_name: String,
@@ -55,10 +80,23 @@ pub struct MyResources {
     hand_cursor: bool,
     cursor_world_coordinates: Vec2,
 }
+
+#[derive(Resource)]
+pub struct BevyGraph(Graph);
+
+#[derive(Resource)]
+pub struct StationIdProvider(u32);
+
 // This adds our Resources to our World component. Resources are pieces of data that
 // can be shared by multiple different parts of the bevy code.
 pub fn instantiate_resources(mut commands: Commands) {
-    commands.insert_resource(MyResources{text_field_clicked: false, hand_cursor: false, cursor_world_coordinates: Vec2::ZERO});
+    commands.insert_resource(MyResources{
+        text_field_clicked: false,
+        hand_cursor: false,
+        cursor_world_coordinates: Vec2::ZERO,
+    });
+    commands.insert_resource(BevyGraph(Graph::new()));
+    commands.insert_resource(StationIdProvider(0));
 }
 
 //fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
@@ -71,7 +109,7 @@ pub fn instantiate_resources(mut commands: Commands) {
 //}
 
 pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
-                  stations: Query<&Name>, mut egui_params: Local<EguiState>,
+                  stations: Query<&Name, (With<StationComponent>, Without<UnderConstruction>) >, mut egui_params: Local<EguiState>,
                   mut resource: ResMut<MyResources>) {
 
     // Set cursor type
@@ -140,7 +178,16 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
     ui.label(format!("Your Station: Name '{}', # of platforms: {}", egui_params.plat_name,
                      egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
     if ui.add(egui::Button::new("Create!")).clicked() {
-        commands.spawn(Name(egui_params.plat_name.clone()));
+        commands.spawn((StationBundle{name: Name(egui_params.plat_name.clone()),
+            platforms: Platforms{
+                low_speed: PlatformLowS(egui_params.plat_LowS.clone()),
+                high_speed: PlatformHighS(egui_params.plat_HighS.clone()),
+                freight: PlatformFreight(egui_params.plat_Freight.clone())
+            },
+            station: StationComponent //inside Bundle
+        },
+            UnderConstruction //Component outside Bundle
+        ));
         resource.hand_cursor = true;
     }
 }
@@ -210,28 +257,46 @@ pub fn ui_spawn_station(
     mut ctx: EguiContexts,
     asset_server: Res<AssetServer>,
     mut resource: ResMut<MyResources>,
-    buttons: Res<Input<MouseButton>>
+    buttons: Res<Input<MouseButton>>,
+    station_info: Query<(&Name, &Platforms, Entity), With<UnderConstruction>>, //TODO: make query to get name and platforms
+    mut graph: ResMut<BevyGraph>,
+    mut next_id: ResMut<StationIdProvider>
 ) {
     if resource.hand_cursor == true {
         if buttons.just_pressed(MouseButton::Left) {
+            let the_station = station_info.get_single().unwrap();
+
             //Changes the sprite size.
             let my_sprite = Sprite{
                 custom_size: Some(Vec2{x: 50.0, y: 50.0}),
                 ..default()
             };
-            commands.spawn(
-                (SpriteBundle {
-                    transform: Transform::from_xyz(resource.cursor_world_coordinates.x.clone(),
-                                                   resource.cursor_world_coordinates.y.clone(),
-                                                   0.0),
+            //EXPLANATION: Whats getting unwrapped here?!
+            // Well as you can see we do the_station.0.0.clone() -> This is because
+            // we Queried for Name and Platforms, here we needed *Name* which is the first element, which is the first zero/0.
+            // The next zero is the *String* that is stored inside our Name component. Finally we clone it because we
+            // cannot move the name value out. And there you go! That's how you get convoluted / beautiful code.
+            // In pseudocode, this equates to Query<&Name, &Platforms>.Name.unwrapString.clone()
+            //
+            //Similar unwrapping is needed for the Platforms, as the Platform Components wrap a u8 number
+            let node_index = graph.0.add_station_to_graph(&mut next_id.0, the_station.0.0.clone(), vec![
+                (the_station.1.low_speed.0, LowSpeed),
+                (the_station.1.high_speed.0, HighSpeed),
+                (the_station.1.freight.0, Freight) ]);
+            commands.entity(the_station.2).remove::<UnderConstruction>();
+            let (x, y) = (resource.cursor_world_coordinates.x.clone(),
+                                resource.cursor_world_coordinates.y.clone());
+            commands.entity(the_station.2).insert(
+                (StationIndex(node_index.clone()), SpriteBundle {
+                    transform: Transform::from_xyz(x, y, 0.0),
                     sprite: my_sprite,
                     texture: asset_server.load("sprites/planets/planet00.png"),
                     ..default()
-                },
-                 StationUI,
-                ));
+                })
+            );
             ctx.ctx_mut().set_cursor_icon(egui::CursorIcon::Default);
             resource.hand_cursor = false;
+            println!("{:?}", node_index);
         }
     }
 }

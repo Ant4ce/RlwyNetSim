@@ -28,14 +28,14 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     let mut route_id_counter: u32 = 0; 
 
 
-    let mut graph = Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
+    let mut graph = Graph::new();
 
-    let start_node = add_station_to_graph(&mut graph, &mut station_id_counter, "Geneve".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
-    let middle_station = add_station_to_graph(&mut graph, &mut station_id_counter, "Paris".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
-    let end_node= add_station_to_graph(&mut graph, &mut station_id_counter, "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
+    let start_node = graph.add_station_to_graph(&mut station_id_counter, "Geneve".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+    let middle_station = graph.add_station_to_graph(&mut station_id_counter, "Paris".to_string(), vec![(3, TrainType::LowSpeed),(1, TrainType::Freight)]);
+    let end_node= graph.add_station_to_graph(&mut station_id_counter, "Eindhoven".to_string(), vec![(1, TrainType::LowSpeed), (2, TrainType::HighSpeed)]);
 
-    add_route_to_graph(&mut graph, start_node, middle_station, &mut route_id_counter, String::from("S1"), true);
-    add_route_to_graph(&mut graph, middle_station, end_node, &mut route_id_counter, String::from("S1"), true);
+    graph.add_route_to_graph( start_node, middle_station, &mut route_id_counter, String::from("S1"), true);
+    graph.add_route_to_graph( middle_station, end_node, &mut route_id_counter, String::from("S1"), true);
 
     let mut register = TrainRegister::new(String::from("S-Bahn fleet"));
     register.add_train(TrainType::Freight, Location::NodeTypeIndex(start_node), String::from("S1"), true, "Passenger".to_string());
@@ -44,7 +44,7 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     let pool = ThreadPool::new(4);
 
     for train in &register.train_list {
-        let arc_graph = Arc::clone(&graph);
+        let arc_graph = Arc::clone(&graph.graph);
         let train_new = Arc::clone(&train);
         pool.execute(move || train_new.lock().unwrap().move_forward(&arc_graph));
     }
