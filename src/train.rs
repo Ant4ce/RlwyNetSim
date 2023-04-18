@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
 use petgraph::stable_graph::{NodeIndex, EdgeIndex};
 use petgraph::visit::EdgeRef;
+use crate::graph;
 use crate::station::Station;
 use crate::route::Route;
 
@@ -181,24 +182,24 @@ mod tests {
     use petgraph::stable_graph::StableGraph;
     use super::*;
     use crate::graph;
+    use crate::graph::Graph;
     use crate::train::Location::{EdgeTypeIndex, NodeTypeIndex};
 
-    fn construct_scenario(fake_id: &mut u32) -> (Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
+    fn construct_scenario(fake_id: &mut u32) -> (graph::Graph,
                                                  NodeIndex, NodeIndex, NodeIndex) {
-        let mut test_graph =
-            Arc::new(RwLock::new(StableGraph::<Arc<Mutex<Station>>, Arc<Mutex<Route>>>::new()));
-        let station1 = graph::add_station_to_graph(&mut test_graph, fake_id,
+        let mut test_graph = graph::Graph::new();
+        let station1 = test_graph.add_station_to_graph(fake_id,
                            String::from("Tokyo"), vec![(8, TrainType::LowSpeed),
                                                        (2, TrainType::HighSpeed)]);
-        let station2 = graph::add_station_to_graph(&mut test_graph, fake_id,
+        let station2 = test_graph.add_station_to_graph( fake_id,
                            String::from("Nagoya"), vec![(3, TrainType::LowSpeed),
                                                         (1, TrainType::HighSpeed)]);
-        let station3 = graph::add_station_to_graph(&mut test_graph, fake_id,
+        let station3 = test_graph.add_station_to_graph( fake_id,
                            String::from("Osaka"), vec![(5, TrainType::LowSpeed),
                                                        (2, TrainType::HighSpeed)]);
-        graph::add_route_to_graph(&mut test_graph, station1, station2, fake_id,
+        test_graph.add_route_to_graph( station1, station2, fake_id,
                                   String::from("Tokaido_Shinkansen"), true);
-        graph::add_route_to_graph(&mut test_graph, station2, station3, fake_id,
+        test_graph.add_route_to_graph( station2, station3, fake_id,
                                   String::from("Tokaido_Shinkansen"), true);
         (test_graph, station1, station2, station3)
     }
@@ -213,20 +214,20 @@ mod tests {
                              String::from("Tokaido_Shinkansen"), true,
                              String::from("Shinkansen"));
         println!("Starting at NodeIndex(0)");
-        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph);
+        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph.graph);
         assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
-                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
-        for _ in 0..3 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph); }
+                   EdgeTypeIndex(test_graph.graph.read().unwrap().find_edge(station1, station2).unwrap()));
+        for _ in 0..3 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph.graph); }
         assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
                    NodeTypeIndex(station3));
         println!("successfully reached endstation, time for a turnaround!");
-        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph);
+        test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph.graph);
         assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
-                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station3, station2).unwrap()));
+                   EdgeTypeIndex(test_graph.graph.read().unwrap().find_edge(station3, station2).unwrap()));
         println!("turnaround backwards worked!");
-        for _ in 1..5 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph); }
+        for _ in 1..5 { test_fleet.train_list[0].lock().unwrap().move_forward(&test_graph.graph); }
         assert_eq!(test_fleet.train_list[0].lock().unwrap().location,
-                   EdgeTypeIndex(test_graph.read().unwrap().find_edge(station1, station2).unwrap()));
+                   EdgeTypeIndex(test_graph.graph.read().unwrap().find_edge(station1, station2).unwrap()));
         println!("turnaround forwards worked, the train go around infinitely");
     }
 }

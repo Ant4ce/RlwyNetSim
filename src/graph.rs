@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn  test_major_station_removal() {
 
-            let mut test_graph = Graph::new();
+        let mut test_graph = Graph::new();
 
 
         let mut fake_id: u32 = 0;
