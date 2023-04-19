@@ -67,7 +67,7 @@ impl Graph {
 // outgoing route and the same for two OUTGOING routes without an incoming route.
     pub fn add_route_to_graph(&mut self,
                               station_a: NodeIndex, station_b: NodeIndex, route_id: &mut u32,
-                              name: String, bidirectional: bool)  {
+                              name: String, bidirectional: bool) -> ( Option<EdgeIndex>, Option<EdgeIndex> ) {
         let (mut name_f, mut name_b) = (name.clone(), name.clone());
         name_f.push('f');
         name_b.push('b');
@@ -75,10 +75,12 @@ impl Graph {
         let new_route = Route::new(route_id, name_f);
         let new_route_reverse_direction = Route::new(route_id, name_b);
 
-        self.graph.write().unwrap().add_edge(station_a, station_b, Arc::new(Mutex::new(new_route)));
+        let mut backward_edge = None;
+        let forward_edge = Some(self.graph.write().unwrap().add_edge(station_a, station_b, Arc::new(Mutex::new(new_route))));
         if bidirectional == true {
-            self.graph.write().unwrap().add_edge(station_b, station_a, Arc::new(Mutex::new(new_route_reverse_direction)));
+            backward_edge = Some(self.graph.write().unwrap().add_edge(station_b, station_a, Arc::new(Mutex::new(new_route_reverse_direction))));
         }
+        (forward_edge, backward_edge)
     }
     /// Removes specified station from graph
     ///

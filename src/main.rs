@@ -58,5 +58,6 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         .add_system(move_camera)
         .add_system(cursor_location_in_world)
         .add_system(ui_spawn_station)
+        .add_system(route_making)
         .run();
 }

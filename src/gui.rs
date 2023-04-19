@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display, format, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
+use num_traits::pow::Pow;
 use bevy::ecs::query::WorldQuery;
 use petgraph::stable_graph::{StableGraph, NodeIndex, EdgeIndex};
 use bevy_egui::{egui, EguiContexts};
@@ -74,6 +75,12 @@ pub struct EguiState {
     plat_Freight: u8,
 }
 
+#[derive(Default)]
+pub struct RouteEndpoints {
+    start: Option<NodeIndex>,
+    end: Option<NodeIndex>,
+}
+
 #[derive(Resource)]
 pub struct MyResources {
     text_field_clicked: bool,
@@ -87,6 +94,9 @@ pub struct BevyGraph(Graph);
 #[derive(Resource)]
 pub struct StationIdProvider(u32);
 
+#[derive(Resource)]
+pub struct RouteIdProvider(u32);
+
 // This adds our Resources to our World component. Resources are pieces of data that
 // can be shared by multiple different parts of the bevy code.
 pub fn instantiate_resources(mut commands: Commands) {
@@ -97,6 +107,7 @@ pub fn instantiate_resources(mut commands: Commands) {
     });
     commands.insert_resource(BevyGraph(Graph::new()));
     commands.insert_resource(StationIdProvider(0));
+    commands.insert_resource(RouteIdProvider(0));
 }
 
 //fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
@@ -297,6 +308,53 @@ pub fn ui_spawn_station(
             ctx.ctx_mut().set_cursor_icon(egui::CursorIcon::Default);
             resource.hand_cursor = false;
             println!("{:?}", node_index);
+        }
+    }
+}
+
+pub fn route_making(
+    //mut commands: Commands,
+    resource: Res<MyResources>,
+    station_q: Query<(&Sprite, &Transform, &StationIndex, Entity), With<StationComponent>>,
+    buttons: Res<Input<MouseButton>>,
+    mut route_stations: Local<RouteEndpoints>,
+    mut graph: ResMut<BevyGraph>,
+    mut route_id: ResMut<RouteIdProvider>,
+) {
+    if buttons.just_pressed(MouseButton::Right){
+        let (old_start, eld_end) = (route_stations.start, route_stations.end);
+        let (x, y) = (resource.cursor_world_coordinates.x.clone(), resource.cursor_world_coordinates.y.clone());
+        for query in station_q.iter() {
+            if (((query.1.translation.x - x as f32).pow(2) +
+                (query.1.translation.y - y as f32).pow(2)) as f32).sqrt() < query.0.custom_size.unwrap().x / 2.2 {
+                println!("x : {:?}, y {:?}", (query.1.translation.x - x).abs(),(query.1.translation.y - x).abs());
+                match route_stations.start {
+                    None => {route_stations.start = Some(query.2.0);}
+                    Some(x) => {
+                        route_stations.end = Some(query.2.0);
+                        let (f, b) =
+                            graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
+                                                       &mut route_id.0, String::from("HyperLane"), true);
+                        (route_stations.start, route_stations.end) = (None, None);
+
+                        println!("{:?}, {:?}",f, b);
+                        break
+                    }
+                }
+            }
+        }
+        match old_start {
+            Some(T) => {
+                match route_stations.start {
+                    Some(X) => {
+                        if T == X {
+                            route_stations.start = None;
+                        }
+                    }
+                    None => (),
+                }
+            }
+            None => ()
         }
     }
 }
