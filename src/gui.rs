@@ -13,6 +13,19 @@ use crate::graph::Graph;
 use crate::route::Route;
 use crate::station::Station;
 use crate::train::TrainType::{LowSpeed, HighSpeed, Freight};
+use bevy::{
+    pbr::{MaterialPipeline, MaterialPipelineKey},
+    prelude::*,
+    reflect::TypeUuid,
+    render::{
+        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        render_resource::{
+            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
+            SpecializedMeshPipelineError,
+        },
+    },
+};
+use bevy::render::mesh::PrimitiveTopology::LineList;
 
 #[derive(Component)]
 struct DefaultStation;
@@ -78,6 +91,7 @@ pub struct EguiState {
 #[derive(Default)]
 pub struct RouteEndpoints {
     start: Option<NodeIndex>,
+    start_coordinates: Vec2,
     end: Option<NodeIndex>,
 }
 
@@ -295,8 +309,7 @@ pub fn ui_spawn_station(
                 (the_station.1.high_speed.0, HighSpeed),
                 (the_station.1.freight.0, Freight) ]);
             commands.entity(the_station.2).remove::<UnderConstruction>();
-            let (x, y) = (resource.cursor_world_coordinates.x.clone(),
-                                resource.cursor_world_coordinates.y.clone());
+            let (x, y) = (resource.cursor_world_coordinates.x.clone(), resource.cursor_world_coordinates.y.clone());
             commands.entity(the_station.2).insert(
                 (StationIndex(node_index.clone()), SpriteBundle {
                     transform: Transform::from_xyz(x, y, 0.0),
@@ -312,30 +325,84 @@ pub fn ui_spawn_station(
     }
 }
 
+//#[derive(Default, AsBindGroup, TypeUuid, Debug, Clone)]
+//#[uuid = "050ce6ac-080a-4d8c-b6b5-b5bab7560d8f"]
+//pub struct LineMaterial {
+//    #[uniform(0)]
+//    color: Color,
+//}
+//impl Material for LineMaterial {
+//    fn fragment_shader() -> ShaderRef {
+//        "shaders/line_material.wgsl".into()
+//    }
+//
+//    fn specialize(
+//        _pipeline: &MaterialPipeline<Self>,
+//        descriptor: &mut RenderPipelineDescriptor,
+//        _layout: &MeshVertexBufferLayout,
+//        _key: MaterialPipelineKey<Self>,
+//    ) -> Result<(), SpecializedMeshPipelineError> {
+//        // This is the important part to tell bevy to render this material as a line between vertices
+//        descriptor.primitive.polygon_mode = PolygonMode::Line;
+//        Ok(())
+//    }
+//}
+//#[derive(Debug, Clone)]
+//pub struct LineStrip {
+//    pub points: Vec<Vec3>,
+//}
+//
+//impl From<LineStrip> for Mesh {
+//    fn from(line: LineStrip) -> Self {
+//        // This tells wgpu that the positions are a list of points
+//        // where a line will be drawn between each consecutive point
+//        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+//
+//        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, line.points);
+//        mesh
+//    }
+//}
+
 pub fn route_making(
-    //mut commands: Commands,
+    mut commands: Commands,
     resource: Res<MyResources>,
     station_q: Query<(&Sprite, &Transform, &StationIndex, Entity), With<StationComponent>>,
     buttons: Res<Input<MouseButton>>,
     mut route_stations: Local<RouteEndpoints>,
     mut graph: ResMut<BevyGraph>,
     mut route_id: ResMut<RouteIdProvider>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     if buttons.just_pressed(MouseButton::Right){
-        let (old_start, eld_end) = (route_stations.start, route_stations.end);
+        let (old_start, old_end) = (route_stations.start, route_stations.end);
         let (x, y) = (resource.cursor_world_coordinates.x.clone(), resource.cursor_world_coordinates.y.clone());
         for query in station_q.iter() {
             if (((query.1.translation.x - x as f32).pow(2) +
                 (query.1.translation.y - y as f32).pow(2)) as f32).sqrt() < query.0.custom_size.unwrap().x / 2.2 {
                 println!("x : {:?}, y {:?}", (query.1.translation.x - x).abs(),(query.1.translation.y - x).abs());
                 match route_stations.start {
-                    None => {route_stations.start = Some(query.2.0);}
+                    None => {route_stations.start = Some(query.2.0); route_stations.start_coordinates = Vec2{x: query.1.translation.x, y: query.1.translation.y};}
                     Some(x) => {
                         route_stations.end = Some(query.2.0);
                         let (f, b) =
                             graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
                                                        &mut route_id.0, String::from("HyperLane"), true);
+                        //commands.spawn(MaterialMeshBundle{
+                        //    mesh: meshes.add(Mesh::from(LineStrip {
+                        //        points: vec![
+                        //            Vec3::ZERO,
+                        //            Vec3::new(route_stations.start_coordinates.x.clone(), route_stations.start_coordinates.y.clone(), 0.0),
+                        //            Vec3::new(query.1.translation.x.clone(), query.1.translation.y, 0.0),
+                        //        ],
+                        //    })),
+                        //    transform: Transform::from_xyz(0.5, 0.0, 0.0),
+                        //    material: materials.add(LineMaterial {color: Color::RED}),
+                        //    ..default()
+                        //});
+
                         (route_stations.start, route_stations.end) = (None, None);
+                        route_stations.start_coordinates = Vec2{x: 0.0, y: 0.0};
 
                         println!("{:?}, {:?}",f, b);
                         break
@@ -357,4 +424,10 @@ pub fn route_making(
             None => ()
         }
     }
+}
+
+fn create_line() -> Mesh {
+    let mut mesh = Mesh::new(PrimitiveTopology::LineList);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[], []]);
+    mesh.set_indices()
 }

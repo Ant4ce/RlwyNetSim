@@ -52,6 +52,7 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
+        .add_plugin(MaterialPlugin::<LineMaterial>::default())
         .add_startup_system(spawn_camera)
         .add_startup_system(instantiate_resources)
         .add_system(central_ui)
