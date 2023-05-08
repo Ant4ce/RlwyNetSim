@@ -25,6 +25,8 @@ use bevy::{
         },
     },
 };
+use bevy::render::mesh;
+use bevy::render::mesh::Indices;
 use bevy::render::mesh::PrimitiveTopology::LineList;
 
 #[derive(Component)]
@@ -124,14 +126,6 @@ pub fn instantiate_resources(mut commands: Commands) {
     commands.insert_resource(RouteIdProvider(0));
 }
 
-//fn ui_add_station(mut commands: Commands, name: Name, pos: Position,
-//                  pf_f: PlatformFreight, pf_h: PlatformHighS, pf_l: PlatformLowS,
-//                  graph: &mut Arc<RwLock<StableGraph<Arc<Mutex<Station>>, Arc<Mutex<Route>>>>>,
-//                  id: &mut u32) {
-//    let id = add_station_to_graph(graph, id, name.0.clone(),
-//                          vec![(pf_f.0, Freight), (pf_h.0, HighSpeed), (pf_l.0, LowSpeed)]);
-//    commands.spawn((name, pos, pf_f, pf_h, pf_l));
-//}
 
 pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
                   stations: Query<&Name, (With<StationComponent>, Without<UnderConstruction>) >, mut egui_params: Local<EguiState>,
@@ -202,6 +196,7 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
     ui.add(egui::Slider::new(&mut egui_params.plat_HighS, 0..=100).text("HighSpeed Platforms"));
     ui.label(format!("Your Station: Name '{}', # of platforms: {}", egui_params.plat_name,
                      egui_params.plat_Freight + egui_params.plat_HighS + egui_params.plat_LowS));
+    ui.label(format!("Mouse world coordinates: {}, {}", resource.cursor_world_coordinates.x, resource.cursor_world_coordinates.y));
     if ui.add(egui::Button::new("Create!")).clicked() {
         commands.spawn((StationBundle{name: Name(egui_params.plat_name.clone()),
             platforms: Platforms{
@@ -220,8 +215,9 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
 pub fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
     let window = window_query.get_single().unwrap();
 
-    commands.spawn(Camera2dBundle {
-       transform: Transform::from_xyz(window.width()/ 2.0, window.height() /2.0, 0.0),
+    //transform: Transform::from_xyz(window.width()/ 2.0, window.height() /2.0, 0.0),
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 10.0),
         ..default()
     });
 }
@@ -237,14 +233,16 @@ pub fn cursor_location_in_world(
     let (camera, camera_transform) = query_camera.single();
     let window = window_query.single();
 
-    if let Some(world_position) = window.cursor_position().and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor)) {
+    // When using a 2d camera, use viewport_to_world_2d instead of world_to_viewport!
+    // this is what we used to do.
+    if let Some(world_position) = window.cursor_position().and_then(|cursor| camera.world_to_viewport(camera_transform, Vec3::new(cursor.x, cursor.y, 0.0))) {
         //println!("world coordinates: {} , {}", world_position.x, world_position.y);
         resource.cursor_world_coordinates = world_position;
     }
 
 }
 
-pub const CAMERA_SPEED: f32 = 300.0;
+pub const CAMERA_SPEED: f32 = 30.0;
 
 pub fn move_camera(
     keyboard_input: Res<Input<KeyCode>>,
@@ -371,8 +369,8 @@ pub fn route_making(
     mut route_stations: Local<RouteEndpoints>,
     mut graph: ResMut<BevyGraph>,
     mut route_id: ResMut<RouteIdProvider>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<LineMaterial>>,
+    //mut meshes: ResMut<Assets<Mesh>>,
+    //mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     if buttons.just_pressed(MouseButton::Right){
         let (old_start, old_end) = (route_stations.start, route_stations.end);
@@ -426,8 +424,55 @@ pub fn route_making(
     }
 }
 
-fn create_line() -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[], []]);
-    mesh.set_indices()
+
+
+//pub fn create_line() -> Mesh {
+//    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+//    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0, 0.0, 0.0], [400.0,400.0,400.0]]);
+//    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, Color::RED);
+//    mesh
+//}
+pub fn create_triangle(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+    assest: Res<Assets>,
+) {
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+
+    // Positions of the vertices
+    // See https://bevy-cheatbook.github.io/features/coords.html
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![[0., 0., 0.], [50., 20., 0.], [20., 0., 0.]],
+    );
+
+    // In this example, normals and UVs don't matter,
+    // so we just use the same value for all of them
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; 3]);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.]; 3]);
+
+    // A triangle using vertices 0, 2, and 1.
+    // Note: order matters. [0, 1, 2] will be flipped upside down, and you won't see it from behind!
+    mesh.set_indices(Some(mesh::Indices::U32(vec![0,2,1])));
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(mesh),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..default()
+    });
+    commands.spawn(PointLightBundle {
+           point_light: PointLight {
+               intensity: 1500.0,
+               shadows_enabled: true,
+               ..default()
+           },
+           transform: Transform::from_xyz(4.0, 8.0, 4.0),
+           ..default()
+    });
+
+
+
+
 }

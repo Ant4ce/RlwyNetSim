@@ -52,13 +52,15 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
-        .add_plugin(MaterialPlugin::<LineMaterial>::default())
+        //.add_plugin(MaterialPlugin::<LineMaterial>::default())
         .add_startup_system(spawn_camera)
         .add_startup_system(instantiate_resources)
+        .add_startup_system(create_triangle)
+        .insert_resource(Msaa::Sample4)
         .add_system(central_ui)
         .add_system(move_camera)
         .add_system(cursor_location_in_world)
         .add_system(ui_spawn_station)
-        .add_system(route_making)
+        //.add_system(route_making)
         .run();
 }
