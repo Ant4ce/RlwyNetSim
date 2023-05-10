@@ -28,6 +28,7 @@ use bevy::{
 use bevy::render::mesh;
 use bevy::render::mesh::Indices;
 use bevy::render::mesh::PrimitiveTopology::LineList;
+use bevy::asset::LoadState;
 
 #[derive(Component)]
 struct DefaultStation;
@@ -95,6 +96,7 @@ pub struct RouteEndpoints {
     start: Option<NodeIndex>,
     start_coordinates: Vec2,
     end: Option<NodeIndex>,
+    end_coordinates: Vec2,
 }
 
 #[derive(Resource)]
@@ -216,8 +218,8 @@ pub fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<Pr
     let window = window_query.get_single().unwrap();
 
     //transform: Transform::from_xyz(window.width()/ 2.0, window.height() /2.0, 0.0),
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 10.0),
+    commands.spawn(Camera2dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 0.0),
         ..default()
     });
 }
@@ -235,14 +237,16 @@ pub fn cursor_location_in_world(
 
     // When using a 2d camera, use viewport_to_world_2d instead of world_to_viewport!
     // this is what we used to do.
-    if let Some(world_position) = window.cursor_position().and_then(|cursor| camera.world_to_viewport(camera_transform, Vec3::new(cursor.x, cursor.y, 0.0))) {
+    // 3d might be world_to_viewport, tested it but seems to only semi-work. It gives coordinates,
+    // but these coordinates change more or less depending on whether it is mouse or key movement.
+    if let Some(world_position) = window.cursor_position().and_then(|cursor| camera.viewport_to_world_2d(camera_transform, Vec2::new(cursor.x, cursor.y))) {
         //println!("world coordinates: {} , {}", world_position.x, world_position.y);
         resource.cursor_world_coordinates = world_position;
     }
 
 }
 
-pub const CAMERA_SPEED: f32 = 30.0;
+pub const CAMERA_SPEED: f32 = 300.0;
 
 pub fn move_camera(
     keyboard_input: Res<Input<KeyCode>>,
@@ -323,43 +327,6 @@ pub fn ui_spawn_station(
     }
 }
 
-//#[derive(Default, AsBindGroup, TypeUuid, Debug, Clone)]
-//#[uuid = "050ce6ac-080a-4d8c-b6b5-b5bab7560d8f"]
-//pub struct LineMaterial {
-//    #[uniform(0)]
-//    color: Color,
-//}
-//impl Material for LineMaterial {
-//    fn fragment_shader() -> ShaderRef {
-//        "shaders/line_material.wgsl".into()
-//    }
-//
-//    fn specialize(
-//        _pipeline: &MaterialPipeline<Self>,
-//        descriptor: &mut RenderPipelineDescriptor,
-//        _layout: &MeshVertexBufferLayout,
-//        _key: MaterialPipelineKey<Self>,
-//    ) -> Result<(), SpecializedMeshPipelineError> {
-//        // This is the important part to tell bevy to render this material as a line between vertices
-//        descriptor.primitive.polygon_mode = PolygonMode::Line;
-//        Ok(())
-//    }
-//}
-//#[derive(Debug, Clone)]
-//pub struct LineStrip {
-//    pub points: Vec<Vec3>,
-//}
-//
-//impl From<LineStrip> for Mesh {
-//    fn from(line: LineStrip) -> Self {
-//        // This tells wgpu that the positions are a list of points
-//        // where a line will be drawn between each consecutive point
-//        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
-//
-//        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, line.points);
-//        mesh
-//    }
-//}
 
 pub fn route_making(
     mut commands: Commands,
@@ -369,10 +336,11 @@ pub fn route_making(
     mut route_stations: Local<RouteEndpoints>,
     mut graph: ResMut<BevyGraph>,
     mut route_id: ResMut<RouteIdProvider>,
-    //mut meshes: ResMut<Assets<Mesh>>,
-    //mut materials: ResMut<Assets<LineMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if buttons.just_pressed(MouseButton::Right){
+        println!("Just pressed right button");
         let (old_start, old_end) = (route_stations.start, route_stations.end);
         let (x, y) = (resource.cursor_world_coordinates.x.clone(), resource.cursor_world_coordinates.y.clone());
         for query in station_q.iter() {
@@ -383,24 +351,15 @@ pub fn route_making(
                     None => {route_stations.start = Some(query.2.0); route_stations.start_coordinates = Vec2{x: query.1.translation.x, y: query.1.translation.y};}
                     Some(x) => {
                         route_stations.end = Some(query.2.0);
+                        route_stations.end_coordinates = Vec2{x: query.1.translation.x, y: query.1.translation.y};
                         let (f, b) =
                             graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
                                                        &mut route_id.0, String::from("HyperLane"), true);
-                        //commands.spawn(MaterialMeshBundle{
-                        //    mesh: meshes.add(Mesh::from(LineStrip {
-                        //        points: vec![
-                        //            Vec3::ZERO,
-                        //            Vec3::new(route_stations.start_coordinates.x.clone(), route_stations.start_coordinates.y.clone(), 0.0),
-                        //            Vec3::new(query.1.translation.x.clone(), query.1.translation.y, 0.0),
-                        //        ],
-                        //    })),
-                        //    transform: Transform::from_xyz(0.5, 0.0, 0.0),
-                        //    material: materials.add(LineMaterial {color: Color::RED}),
-                        //    ..default()
-                        //});
+                        build_rail(commands, meshes, materials, (route_stations.start_coordinates, route_stations.end_coordinates));
 
                         (route_stations.start, route_stations.end) = (None, None);
                         route_stations.start_coordinates = Vec2{x: 0.0, y: 0.0};
+                        route_stations.end_coordinates = Vec2{x: 0.0, y: 0.0};
 
                         println!("{:?}, {:?}",f, b);
                         break
@@ -432,12 +391,11 @@ pub fn route_making(
 //    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, Color::RED);
 //    mesh
 //}
+
 pub fn create_triangle(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-    assest: Res<Assets>,
 ) {
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
@@ -471,8 +429,44 @@ pub fn create_triangle(
            transform: Transform::from_xyz(4.0, 8.0, 4.0),
            ..default()
     });
+}
+
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use num_traits::abs;
 
 
+//pub fn setup(
+//    mut commands: Commands,
+//    mut meshes: ResMut<Assets<Mesh>>,
+//    mut materials: ResMut<Assets<ColorMaterial>>,
+//) {
+//    build_rail(commands, meshes, materials, (Vec2::new(0., 0.), Vec2::new(40., 50.)));
+//}
+pub fn build_rail(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    location: (Vec2, Vec2),
+) {
+    let (location_1, location_2) = location;
+    // calculate the middle point between points.
+    let (spawn_point, length, angle_radians) = calculate_middle(location_1, location_2);
 
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(5., length)))).into(),
+        transform: Transform::from_xyz(spawn_point.x, spawn_point.y, 0.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
+        material: materials.add(ColorMaterial::from(Color::PURPLE)),
+        ..default()
+    });
+}
 
+use libm::atan2;
+
+fn calculate_middle(location1: Vec2, location2: Vec2) -> (Vec2, f32,f32) {
+    let distance_between = (((abs(location2.x - location1.x)).powf(2.0))
+        + (abs(location2.y - location1.y)).powf(2.0)).sqrt();
+    let spawn_point: Vec2 = Vec2::new((location1.x + location2.x)/2.0, (location1.y + location2.y)/2.0 );
+    let angle_radians = atan2((spawn_point.x - location1.x).into(), (spawn_point.y - location1.y).into());
+    println!("radians angle is : {}", angle_radians);
+    (spawn_point, distance_between / 5. as f32, (-1.0 * angle_radians as f64) as f32)
 }

@@ -52,15 +52,22 @@ fn main() /* -> Result<(), eframe::Error>*/ {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
+        //.add_state::<GameState>()
         //.add_plugin(MaterialPlugin::<LineMaterial>::default())
         .add_startup_system(spawn_camera)
         .add_startup_system(instantiate_resources)
         .add_startup_system(create_triangle)
+        //.add_startup_system(setup)
+        //.add_startup_system(|asset_server: Res<AssetServer>, mut assets: ResMut<Assets>| {
+        //    assets.0 = asset_server.load("sprites/planets/planet00.png");
+        //})
+        //.add_system(setup.in_set(OnUpdate(GameState::Loading)))
         .insert_resource(Msaa::Sample4)
+        //.insert_resource(Assets::default())
         .add_system(central_ui)
         .add_system(move_camera)
         .add_system(cursor_location_in_world)
         .add_system(ui_spawn_station)
-        //.add_system(route_making)
+        .add_system(route_making)
         .run();
 }
