@@ -258,6 +258,12 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
     }
 }
 
+/// Egui Window to input the Name and Bi-Directionality of Routes
+///
+/// This function creates a window to use when creating a route in the simulation
+/// it allows the user to input a name as well as choosing uni or bi directional
+/// routes. It is an Egui window and is called under the central_ui and so should
+/// not be called by anyone else.
 pub fn ui_route_maker(ui: &mut egui::Ui,
                       egui_params: &mut Local<EguiRoute>,
                       mut my_route_resource: ResMut<show_route>,
@@ -265,6 +271,7 @@ pub fn ui_route_maker(ui: &mut egui::Ui,
                       mut graph: ResMut<BevyGraph>,
                       mut route_id: ResMut<RouteIdProvider>) {
 
+    // The following is the format of the window.
     ui.heading("Name Your Route");
 
     ui.horizontal(|ui| {
@@ -278,13 +285,17 @@ pub fn ui_route_maker(ui: &mut egui::Ui,
     });
     if ui.add(egui::Button::new("Create Route!")).clicked() {
 
+        //save the user selected option for use in build_rail() function.
         building_material.bi_directional_copy = egui_params.bi_directional.clone();
+        // creates the route in the graph.
         let (f, b) =
             graph.0.add_route_to_graph(building_material.start.unwrap(),building_material.end.unwrap(),
                                        &mut route_id.0, egui_params.route_name.clone(), egui_params.bi_directional.clone());
+        // tells the build_rail() function that it can build the mesh.
         building_material.build_rail = true;
         //build_rail( commands, meshes, materials, (building_material.start_coordinates, building_material.end_coordinates));
 
+        // tells central_ui() to no longer show the route making window.
         my_route_resource.0 = false;
     }
 }
@@ -403,15 +414,10 @@ pub fn ui_spawn_station(
 }
 
 pub fn route_making(
-    mut commands: Commands,
     mut resource: ResMut<MyResources>,
     station_q: Query<(&Sprite, &Transform, &StationIndex, Entity), With<StationComponent>>,
     buttons: Res<Input<MouseButton>>,
     mut route_stations: Local<RouteEndpoints>,
-    mut graph: ResMut<BevyGraph>,
-    mut route_id: ResMut<RouteIdProvider>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     mut my_route_resource: ResMut<show_route>,
     mut builing_materials: ResMut<route_building_materials>,
 ) {
@@ -428,21 +434,20 @@ pub fn route_making(
                     Some(x) => {
                         route_stations.end = Some(query.2.0);
                         route_stations.end_coordinates = Vec2{x: query.1.translation.x, y: query.1.translation.y};
+                        //tells central_ui() to show the route creation window.
                         my_route_resource.0 = true;
+                        // saves the locations and NodeIndexes that the user has clicked on, for
+                        // use in build_rail() function.
                         builing_materials.start = route_stations.start.clone();
                         builing_materials.end = route_stations.end.clone();
                         builing_materials.start_coordinates = route_stations.start_coordinates.clone();
                         builing_materials.end_coordinates = route_stations.end_coordinates.clone();
-                        //let (f, b) =
-                        //    graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
-                        //                               &mut route_id.0, String::from("Filler"), true);
-                        //build_rail(commands, meshes, materials, (route_stations.start_coordinates, route_stations.end_coordinates));
 
+                        // resets the state of the resource for the next route creation.
                         (route_stations.start, route_stations.end) = (None, None);
                         route_stations.start_coordinates = Vec2{x: 0.0, y: 0.0};
                         route_stations.end_coordinates = Vec2{x: 0.0, y: 0.0};
 
-                        //println!("{:?}, {:?}",f, b);
                         break
                     }
                 }
@@ -469,48 +474,78 @@ pub fn route_making(
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use num_traits::abs;
 
+/// Creates the meshes of the routes.
+///
+/// This function will check the state of the Simulation and create the
+/// meshes for the routes only when the name and bi-directionality state
+/// have been provided. It will create Green routes for uni-directional
+/// routes and purple ones for bi-directional.
+///
+/// This function is a system provided to the bevy App. So it should not be
+/// called individually by anyone other than bevy itself.
 pub fn build_rail(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut building_material: ResMut<route_building_materials>,
 ) {
+    // .build_rail is to see if the mesh should be built.
     if building_material.build_rail {
         let (location_1, location_2) = (building_material.start_coordinates, building_material.end_coordinates);
-        // calculate the middle point between points.
+        // calculate the middle point between points, the length and the angle between them.
         let (spawn_point, length, angle_radians) = calculate_middle(location_1, location_2);
 
-        //different visual indication depending on wether bi-directional or not.
+        //different visual indication depending on whether bi-directional or not.
         if building_material.bi_directional_copy {
             commands.spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(5., length)))).into(),
-                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, 0.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
+                // decides the shape of the mesh, its height and width inside the Vec2.
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(25., length)))).into(),
+                // decides the spawn location, changes the scale of the mesh and add the angle rotation to the object.
+                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, 0.0).with_rotation(Quat::from_rotation_z(angle_radians)),
+                // chooses the meshes color.
                 material: materials.add(ColorMaterial::from(Color::PURPLE)),
                 ..default()
             });
         } else {
+            // same funcionality as the above if clause.
             commands.spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.5, length)))).into(),
-                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, -1.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(12.5, length)))).into(),
+                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, -1.0).with_rotation(Quat::from_rotation_z(angle_radians)),
                 material: materials.add(ColorMaterial::from(Color::GREEN)),
                 ..default()
             });
         }
+        // reset the state of the resource to make sure we don't accidentally create the same route multiple times.
         building_material.start = None;
         building_material.end = None;
         building_material.start_coordinates = Vec2{x: 0.0, y: 0.0};
         building_material.end_coordinates = Vec2{x: 0.0, y: 0.0};
+        // change to false to make sure the system stops building meshes.
         building_material.build_rail = false;
     }
 }
 
 use libm::atan2;
 
+/// Returns tuple of : (Vec2, f32, f32)
+///
+/// This function calculates the middle point, length and angle between two points given as Vec2's.
+/// It gets the angle between the two points by using atan2().
+/// # Example:
+/// ```
+/// let location1 = Vec2{x: 0.7, y: 1.0};
+/// let location2 = Vec2{x: -12.0, y: 42.1};
+/// let (middle_point, length_between_points, angle) = calculate_middle(location1, location2);
+/// ```
 fn calculate_middle(location1: Vec2, location2: Vec2) -> (Vec2, f32,f32) {
+    // get distance between the two points by using pythagoras.
     let distance_between = (((abs(location2.x - location1.x)).powf(2.0))
         + (abs(location2.y - location1.y)).powf(2.0)).sqrt();
+    // calculating middle point location
     let spawn_point: Vec2 = Vec2::new((location1.x + location2.x)/2.0, (location1.y + location2.y)/2.0 );
+    // calculate the angle by using the 2-argument arctangent.
     let angle_radians = atan2((spawn_point.x - location1.x).into(), (spawn_point.y - location1.y).into());
     println!("radians angle is : {}", angle_radians);
-    (spawn_point, distance_between / 5. as f32, (-1.0 * angle_radians as f64) as f32)
+    // return all the calculated values.
+    (spawn_point, distance_between  as f32, (-1.0 * angle_radians as f64) as f32)
 }
