@@ -92,6 +92,12 @@ pub struct EguiState {
 }
 
 #[derive(Default)]
+pub struct EguiRoute {
+    route_name: String,
+    bi_directional: bool,
+}
+
+#[derive(Default)]
 pub struct RouteEndpoints {
     start: Option<NodeIndex>,
     start_coordinates: Vec2,
@@ -104,6 +110,19 @@ pub struct MyResources {
     text_field_clicked: bool,
     hand_cursor: bool,
     cursor_world_coordinates: Vec2,
+}
+
+#[derive(Resource)]
+pub struct show_route(bool);
+
+#[derive(Resource)]
+pub struct route_building_materials {
+    start: Option<NodeIndex>,
+    end: Option<NodeIndex>,
+    start_coordinates: Vec2,
+    end_coordinates: Vec2,
+    build_rail: bool,
+    bi_directional_copy: bool,
 }
 
 #[derive(Resource)]
@@ -126,12 +145,29 @@ pub fn instantiate_resources(mut commands: Commands) {
     commands.insert_resource(BevyGraph(Graph::new()));
     commands.insert_resource(StationIdProvider(0));
     commands.insert_resource(RouteIdProvider(0));
+    commands.insert_resource(show_route(false));
+    commands.insert_resource(route_building_materials {
+        start: None,
+        end: None,
+        start_coordinates: Vec2{x: 0.0, y: 0.0},
+        end_coordinates: Vec2{x: 0.0, y: 0.0},
+        build_rail: false,
+        bi_directional_copy: false,
+    });
 }
 
 
 pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
-                  stations: Query<&Name, (With<StationComponent>, Without<UnderConstruction>) >, mut egui_params: Local<EguiState>,
-                  mut resource: ResMut<MyResources>) {
+                  stations: Query<&Name, (With<StationComponent>, Without<UnderConstruction>) >,
+                  mut egui_params: Local<EguiState>,
+                  mut egui_route_params: Local<EguiRoute>,
+                  mut resource: ResMut<MyResources>,
+                  mut my_route_resource: ResMut<show_route>,
+                  mut building_material: ResMut<route_building_materials>,
+                  mut graph: ResMut<BevyGraph>,
+                  mut route_id: ResMut<RouteIdProvider>,
+                  mut meshes: ResMut<Assets<Mesh>>,
+                  mut materials: ResMut<Assets<ColorMaterial>>) {
 
     // Set cursor type
     if resource.hand_cursor {
@@ -176,8 +212,16 @@ pub fn central_ui(mut ctx: EguiContexts, mut commands: Commands,
     egui::Window::new("Station Creation").show(ctx.ctx_mut(), |ui| {
         make_station(ui, &mut egui_params, commands, resource);
     });
+    if my_route_resource.0 {
+        egui::Window::new("Route Creator").show(ctx.ctx_mut(), |ui| {
+            ui_route_maker(ui, &mut egui_route_params, my_route_resource, building_material, graph,  route_id);
+        });
+    }
 }
 
+//fn commands_provider(mut commands: Commands) -> Commands{
+//    commands
+//}
 
 pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
                     mut commands: Commands, mut resource: ResMut<MyResources>) {
@@ -211,6 +255,37 @@ pub fn make_station(ui: &mut egui::Ui, egui_params: &mut Local<EguiState>,
             UnderConstruction //Component outside Bundle
         ));
         resource.hand_cursor = true;
+    }
+}
+
+pub fn ui_route_maker(ui: &mut egui::Ui,
+                      egui_params: &mut Local<EguiRoute>,
+                      mut my_route_resource: ResMut<show_route>,
+                      mut building_material: ResMut<route_building_materials>,
+                      mut graph: ResMut<BevyGraph>,
+                      mut route_id: ResMut<RouteIdProvider>) {
+
+    ui.heading("Name Your Route");
+
+    ui.horizontal(|ui| {
+        ui.label("Route Name: ");
+        ui.text_edit_singleline(&mut egui_params.route_name);
+    });
+    ui.horizontal(|ui| {
+        ui.label("Bi-Directional Route ");
+        ui.checkbox(&mut egui_params.bi_directional, "");
+        //ui.label(format!("Bi-directional is : {}", egui_params.bi_directional.clone()))
+    });
+    if ui.add(egui::Button::new("Create Route!")).clicked() {
+
+        building_material.bi_directional_copy = egui_params.bi_directional.clone();
+        let (f, b) =
+            graph.0.add_route_to_graph(building_material.start.unwrap(),building_material.end.unwrap(),
+                                       &mut route_id.0, egui_params.route_name.clone(), egui_params.bi_directional.clone());
+        building_material.build_rail = true;
+        //build_rail( commands, meshes, materials, (building_material.start_coordinates, building_material.end_coordinates));
+
+        my_route_resource.0 = false;
     }
 }
 
@@ -327,10 +402,9 @@ pub fn ui_spawn_station(
     }
 }
 
-
 pub fn route_making(
     mut commands: Commands,
-    resource: Res<MyResources>,
+    mut resource: ResMut<MyResources>,
     station_q: Query<(&Sprite, &Transform, &StationIndex, Entity), With<StationComponent>>,
     buttons: Res<Input<MouseButton>>,
     mut route_stations: Local<RouteEndpoints>,
@@ -338,6 +412,8 @@ pub fn route_making(
     mut route_id: ResMut<RouteIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut my_route_resource: ResMut<show_route>,
+    mut builing_materials: ResMut<route_building_materials>,
 ) {
     if buttons.just_pressed(MouseButton::Right){
         println!("Just pressed right button");
@@ -352,16 +428,21 @@ pub fn route_making(
                     Some(x) => {
                         route_stations.end = Some(query.2.0);
                         route_stations.end_coordinates = Vec2{x: query.1.translation.x, y: query.1.translation.y};
-                        let (f, b) =
-                            graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
-                                                       &mut route_id.0, String::from("HyperLane"), true);
-                        build_rail(commands, meshes, materials, (route_stations.start_coordinates, route_stations.end_coordinates));
+                        my_route_resource.0 = true;
+                        builing_materials.start = route_stations.start.clone();
+                        builing_materials.end = route_stations.end.clone();
+                        builing_materials.start_coordinates = route_stations.start_coordinates.clone();
+                        builing_materials.end_coordinates = route_stations.end_coordinates.clone();
+                        //let (f, b) =
+                        //    graph.0.add_route_to_graph(route_stations.start.unwrap(),route_stations.end.unwrap(),
+                        //                               &mut route_id.0, String::from("Filler"), true);
+                        //build_rail(commands, meshes, materials, (route_stations.start_coordinates, route_stations.end_coordinates));
 
                         (route_stations.start, route_stations.end) = (None, None);
                         route_stations.start_coordinates = Vec2{x: 0.0, y: 0.0};
                         route_stations.end_coordinates = Vec2{x: 0.0, y: 0.0};
 
-                        println!("{:?}, {:?}",f, b);
+                        //println!("{:?}, {:?}",f, b);
                         break
                     }
                 }
@@ -385,79 +466,42 @@ pub fn route_making(
 
 
 
-//pub fn create_line() -> Mesh {
-//    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
-//    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0, 0.0, 0.0], [400.0,400.0,400.0]]);
-//    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, Color::RED);
-//    mesh
-//}
-
-pub fn create_triangle(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-    // Positions of the vertices
-    // See https://bevy-cheatbook.github.io/features/coords.html
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![[0., 0., 0.], [50., 20., 0.], [20., 0., 0.]],
-    );
-
-    // In this example, normals and UVs don't matter,
-    // so we just use the same value for all of them
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; 3]);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.]; 3]);
-
-    // A triangle using vertices 0, 2, and 1.
-    // Note: order matters. [0, 1, 2] will be flipped upside down, and you won't see it from behind!
-    mesh.set_indices(Some(mesh::Indices::U32(vec![0,2,1])));
-
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(mesh),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
-    commands.spawn(PointLightBundle {
-           point_light: PointLight {
-               intensity: 1500.0,
-               shadows_enabled: true,
-               ..default()
-           },
-           transform: Transform::from_xyz(4.0, 8.0, 4.0),
-           ..default()
-    });
-}
-
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use num_traits::abs;
 
-
-//pub fn setup(
-//    mut commands: Commands,
-//    mut meshes: ResMut<Assets<Mesh>>,
-//    mut materials: ResMut<Assets<ColorMaterial>>,
-//) {
-//    build_rail(commands, meshes, materials, (Vec2::new(0., 0.), Vec2::new(40., 50.)));
-//}
 pub fn build_rail(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    location: (Vec2, Vec2),
+    mut building_material: ResMut<route_building_materials>,
 ) {
-    let (location_1, location_2) = location;
-    // calculate the middle point between points.
-    let (spawn_point, length, angle_radians) = calculate_middle(location_1, location_2);
+    if building_material.build_rail {
+        let (location_1, location_2) = (building_material.start_coordinates, building_material.end_coordinates);
+        // calculate the middle point between points.
+        let (spawn_point, length, angle_radians) = calculate_middle(location_1, location_2);
 
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(5., length)))).into(),
-        transform: Transform::from_xyz(spawn_point.x, spawn_point.y, 0.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        ..default()
-    });
+        //different visual indication depending on wether bi-directional or not.
+        if building_material.bi_directional_copy {
+            commands.spawn(MaterialMesh2dBundle {
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(5., length)))).into(),
+                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, 0.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
+                material: materials.add(ColorMaterial::from(Color::PURPLE)),
+                ..default()
+            });
+        } else {
+            commands.spawn(MaterialMesh2dBundle {
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.5, length)))).into(),
+                transform: Transform::from_xyz(spawn_point.x, spawn_point.y, -1.0).with_scale(Vec3::splat(5.)).with_rotation(Quat::from_rotation_z(angle_radians)),
+                material: materials.add(ColorMaterial::from(Color::GREEN)),
+                ..default()
+            });
+        }
+        building_material.start = None;
+        building_material.end = None;
+        building_material.start_coordinates = Vec2{x: 0.0, y: 0.0};
+        building_material.end_coordinates = Vec2{x: 0.0, y: 0.0};
+        building_material.build_rail = false;
+    }
 }
 
 use libm::atan2;

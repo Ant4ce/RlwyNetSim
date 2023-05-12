@@ -56,7 +56,6 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         //.add_plugin(MaterialPlugin::<LineMaterial>::default())
         .add_startup_system(spawn_camera)
         .add_startup_system(instantiate_resources)
-        .add_startup_system(create_triangle)
         //.add_startup_system(setup)
         //.add_startup_system(|asset_server: Res<AssetServer>, mut assets: ResMut<Assets>| {
         //    assets.0 = asset_server.load("sprites/planets/planet00.png");
@@ -69,5 +68,6 @@ fn main() /* -> Result<(), eframe::Error>*/ {
         .add_system(cursor_location_in_world)
         .add_system(ui_spawn_station)
         .add_system(route_making)
+        .add_system(build_rail)
         .run();
 }
